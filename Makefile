@@ -6,7 +6,7 @@ MAIN=./cmd/api/main.go
 MIGRATE_DIR=./migrations
 DB_URL=postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)
 
-.PHONY: build run dev tidy test migrate-up migrate-down migrate-create migrate-force \
+.PHONY: build run dev tidy test seed migrate-up migrate-down migrate-create migrate-force \
         docker-build docker-up docker-up-d docker-stop docker-down docker-logs \
         docker-rebuild docker-ps docker-shell docker-restart docker-clean
 
@@ -39,6 +39,12 @@ tidy:
 # -----------------------------
 test:
 	go test ./...
+
+# -----------------------------
+# seed: Populate database with dummy data
+# -----------------------------
+seed:
+	go run ./cmd/seed
 
 # -----------------------------
 # Database migrations

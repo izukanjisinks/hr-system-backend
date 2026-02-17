@@ -1,0 +1,406 @@
+{
+  "info": {
+    "name": "HR System API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Complete API collection for the HR System. Use the Login request first — it auto-sets the {{token}} variable."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "token",   "value": "",                      "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@hr-system.com\",\n  \"password\": \"Admin@123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/me", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","me"] }
+          }
+        },
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"jane.doe@hr-system.com\",\n  \"password\": \"Password@123\",\n  \"role_id\": \"<role-uuid>\"\n}"
+            },
+            "description": "Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/logout", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Departments",
+      "item": [
+        {
+          "name": "Get Department Tree",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/departments/tree", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","departments","tree"] }
+          }
+        },
+        {
+          "name": "List Departments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/departments?page=1&page_size=20&search=&is_active=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","hr","departments"],
+              "query": [
+                { "key": "page",      "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "search",    "value": "",     "disabled": true },
+                { "key": "is_active", "value": "true", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/departments", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","departments"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Engineering\",\n  \"code\": \"ENG\",\n  \"description\": \"Software Engineering department\",\n  \"parent_department_id\": null,\n  \"manager_id\": null\n}"
+            },
+            "description": "Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Get Department",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/departments/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","departments",":id"], "variable": [{ "key": "id", "value": "<department-uuid>" }] }
+          }
+        },
+        {
+          "name": "Update Department",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/departments/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","departments",":id"], "variable": [{ "key": "id", "value": "<department-uuid>" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Engineering Updated\",\n  \"code\": \"ENG\",\n  \"description\": \"Updated description\",\n  \"parent_department_id\": null,\n  \"manager_id\": null\n}"
+            },
+            "description": "Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Delete Department",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/departments/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","departments",":id"], "variable": [{ "key": "id", "value": "<department-uuid>" }] },
+            "description": "Requires SuperAdmin role. Soft delete."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Positions",
+      "item": [
+        {
+          "name": "List Positions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/positions?page=1&page_size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","hr","positions"],
+              "query": [
+                { "key": "page",          "value": "1" },
+                { "key": "page_size",     "value": "20" },
+                { "key": "department_id", "value": "", "disabled": true },
+                { "key": "grade_level",   "value": "", "disabled": true },
+                { "key": "is_active",     "value": "true", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Position",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/positions", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","positions"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Software Engineer\",\n  \"code\": \"SE-01\",\n  \"department_id\": \"<department-uuid>\",\n  \"grade_level\": \"L3\",\n  \"min_salary\": \"60000\",\n  \"max_salary\": \"100000\",\n  \"description\": \"Backend software engineer role\"\n}"
+            },
+            "description": "Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Get Position",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/positions/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","positions",":id"], "variable": [{ "key": "id", "value": "<position-uuid>" }] }
+          }
+        },
+        {
+          "name": "Update Position",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/positions/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","positions",":id"], "variable": [{ "key": "id", "value": "<position-uuid>" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Software Engineer\",\n  \"code\": \"SE-02\",\n  \"department_id\": \"<department-uuid>\",\n  \"grade_level\": \"L4\",\n  \"min_salary\": \"90000\",\n  \"max_salary\": \"140000\",\n  \"description\": \"Senior backend engineer role\"\n}"
+            },
+            "description": "Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Delete Position",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/positions/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","positions",":id"], "variable": [{ "key": "id", "value": "<position-uuid>" }] },
+            "description": "Requires SuperAdmin role. Soft delete."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employees",
+      "item": [
+        {
+          "name": "List Employees",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/employees?page=1&page_size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","hr","employees"],
+              "query": [
+                { "key": "page",          "value": "1" },
+                { "key": "page_size",     "value": "20" },
+                { "key": "search",        "value": "", "disabled": true },
+                { "key": "status",        "value": "", "disabled": true, "description": "active | on_leave | suspended | terminated | resigned" },
+                { "key": "type",          "value": "", "disabled": true, "description": "full_time | part_time | contract | intern" },
+                { "key": "department_id", "value": "", "disabled": true },
+                { "key": "position_id",   "value": "", "disabled": true }
+              ]
+            },
+            "description": "Requires SuperAdmin, HRManager, or Manager role."
+          }
+        },
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/employees", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","employees"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_number\": \"EMP-001\",\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"email\": \"john.doe@company.com\",\n  \"personal_email\": \"john.doe@gmail.com\",\n  \"phone\": \"+1234567890\",\n  \"date_of_birth\": \"1990-05-15T00:00:00Z\",\n  \"gender\": \"male\",\n  \"national_id\": \"123456789\",\n  \"marital_status\": \"single\",\n  \"address\": \"123 Main St\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"country\": \"USA\",\n  \"department_id\": \"<department-uuid>\",\n  \"position_id\": \"<position-uuid>\",\n  \"manager_id\": null,\n  \"hire_date\": \"2024-01-15T00:00:00Z\",\n  \"employment_type\": \"full_time\",\n  \"employment_status\": \"active\"\n}"
+            },
+            "description": "Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Get Employee",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/employees/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","employees",":id"], "variable": [{ "key": "id", "value": "<employee-uuid>" }] }
+          }
+        },
+        {
+          "name": "Update Employee",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/employees/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","employees",":id"], "variable": [{ "key": "id", "value": "<employee-uuid>" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"phone\": \"+1234567890\",\n  \"address\": \"456 New St\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"country\": \"USA\",\n  \"employment_status\": \"active\",\n  \"employment_type\": \"full_time\"\n}"
+            },
+            "description": "Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Delete Employee",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/employees/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","employees",":id"], "variable": [{ "key": "id", "value": "<employee-uuid>" }] },
+            "description": "Requires SuperAdmin role. Soft delete."
+          }
+        },
+        {
+          "name": "Get Direct Reports",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/employees/:id/direct-reports", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","employees",":id","direct-reports"], "variable": [{ "key": "id", "value": "<manager-employee-uuid>" }] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee Documents",
+      "item": [
+        {
+          "name": "List Documents",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/employees/:id/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","hr","employees",":id","documents"],
+              "variable": [{ "key": "id", "value": "<employee-uuid>" }],
+              "query": [
+                { "key": "type", "value": "", "disabled": true, "description": "contract | id_document | certification | offer_letter | warning_letter | other" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/employees/:id/documents", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","employees",":id","documents"], "variable": [{ "key": "id", "value": "<employee-uuid>" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"document_type\": \"contract\",\n  \"title\": \"Employment Contract 2024\",\n  \"description\": \"Signed employment contract\",\n  \"file_url\": \"https://storage.example.com/docs/contract.pdf\",\n  \"file_name\": \"contract.pdf\",\n  \"file_size\": 204800,\n  \"mime_type\": \"application/pdf\",\n  \"expiry_date\": null\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify Document",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/employees/:id/documents/:did/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","hr","employees",":id","documents",":did","verify"],
+              "variable": [
+                { "key": "id",  "value": "<employee-uuid>" },
+                { "key": "did", "value": "<document-uuid>" }
+              ]
+            },
+            "description": "Requires SuperAdmin or HRManager role."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Emergency Contacts",
+      "item": [
+        {
+          "name": "List Emergency Contacts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/employees/:id/emergency-contacts", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","employees",":id","emergency-contacts"], "variable": [{ "key": "id", "value": "<employee-uuid>" }] }
+          }
+        },
+        {
+          "name": "Create Emergency Contact",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/employees/:id/emergency-contacts", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","employees",":id","emergency-contacts"], "variable": [{ "key": "id", "value": "<employee-uuid>" }] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"relationship\": \"Spouse\",\n  \"phone\": \"+1987654321\",\n  \"email\": \"jane.doe@gmail.com\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
