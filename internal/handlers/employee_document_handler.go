@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -106,5 +106,5 @@ func employeeIDFromPath(path, after string) (uuid.UUID, error) {
 			return uuid.Parse(parts[i-1])
 		}
 	}
-	return uuid.Nil, uuid.ErrInvalidUUID
+	return uuid.Nil, errors.New("invalid UUID in path")
 }
