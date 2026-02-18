@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
-	"strings"
 
 	"hr-system/internal/middleware"
 	"hr-system/internal/models"
@@ -22,7 +20,7 @@ func NewEmployeeDocumentHandler(service *services.EmployeeDocumentService) *Empl
 }
 
 func (h *EmployeeDocumentHandler) Create(w http.ResponseWriter, r *http.Request) {
-	employeeID, err := employeeIDFromPath(r.URL.Path, "documents")
+	employeeID, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid employee ID")
 		return
@@ -46,7 +44,7 @@ func (h *EmployeeDocumentHandler) Create(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *EmployeeDocumentHandler) ListByEmployee(w http.ResponseWriter, r *http.Request) {
-	employeeID, err := employeeIDFromPath(r.URL.Path, "documents")
+	employeeID, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid employee ID")
 		return
@@ -62,16 +60,7 @@ func (h *EmployeeDocumentHandler) ListByEmployee(w http.ResponseWriter, r *http.
 }
 
 func (h *EmployeeDocumentHandler) Verify(w http.ResponseWriter, r *http.Request) {
-	// Path: /api/v1/hr/employees/:eid/documents/:did/verify
-	parts := strings.Split(strings.TrimSuffix(r.URL.Path, "/"), "/")
-	var docIDStr string
-	for i, p := range parts {
-		if p == "verify" && i > 0 {
-			docIDStr = parts[i-1]
-			break
-		}
-	}
-	docID, err := uuid.Parse(docIDStr)
+	docID, err := uuid.Parse(r.PathValue("did"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid document ID")
 		return
@@ -86,7 +75,7 @@ func (h *EmployeeDocumentHandler) Verify(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *EmployeeDocumentHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid document ID")
 		return
@@ -96,15 +85,4 @@ func (h *EmployeeDocumentHandler) Delete(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	utils.RespondJSON(w, http.StatusOK, map[string]string{"message": "Document deleted"})
-}
-
-// employeeIDFromPath extracts employee UUID from path like /employees/:id/documents
-func employeeIDFromPath(path, after string) (uuid.UUID, error) {
-	parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
-	for i, p := range parts {
-		if p == after && i > 0 {
-			return uuid.Parse(parts[i-1])
-		}
-	}
-	return uuid.Nil, errors.New("invalid UUID in path")
 }

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strings"
 
 	"hr-system/internal/interfaces"
 	"hr-system/internal/models"
@@ -34,7 +33,7 @@ func (h *DepartmentHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DepartmentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid department ID")
 		return
@@ -74,7 +73,7 @@ func (h *DepartmentHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DepartmentHandler) Update(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid department ID")
 		return
@@ -94,7 +93,7 @@ func (h *DepartmentHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DepartmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid department ID")
 		return
@@ -115,8 +114,13 @@ func (h *DepartmentHandler) GetTree(w http.ResponseWriter, r *http.Request) {
 	utils.RespondJSON(w, http.StatusOK, tree)
 }
 
-// uuidFromPath extracts the last path segment as a UUID
+// uuidFromPath extracts the last path segment as a UUID.
+// Kept for handlers that are not yet on named-param routes.
 func uuidFromPath(path string) (uuid.UUID, error) {
-	parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
-	return uuid.Parse(parts[len(parts)-1])
+	for i := len(path) - 1; i >= 0; i-- {
+		if path[i] == '/' {
+			return uuid.Parse(path[i+1:])
+		}
+	}
+	return uuid.Parse(path)
 }

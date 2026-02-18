@@ -26,7 +26,7 @@ func main() {
 	defer database.Close()
 	log.Println("Database connected")
 
-	// Repositories
+	// Repositories — Phase 1
 	userRepo := repository.NewUserRepository()
 	roleRepo := repository.NewRoleRepository()
 	deptRepo := repository.NewDepartmentRepository()
@@ -35,7 +35,14 @@ func main() {
 	docRepo := repository.NewEmployeeDocumentRepository()
 	ecRepo := repository.NewEmergencyContactRepository()
 
-	// Services
+	// Repositories — Phase 2
+	ltRepo := repository.NewLeaveTypeRepository()
+	lbRepo := repository.NewLeaveBalanceRepository()
+	lrRepo := repository.NewLeaveRequestRepository()
+	holidayRepo := repository.NewHolidayRepository()
+	attRepo := repository.NewAttendanceRepository()
+
+	// Services — Phase 1
 	roleService := services.NewRoleService(roleRepo)
 	userService := services.NewUserService(userRepo, roleRepo)
 	deptService := services.NewDepartmentService(deptRepo)
@@ -43,6 +50,13 @@ func main() {
 	empService := services.NewEmployeeService(empRepo, deptRepo, posRepo)
 	docService := services.NewEmployeeDocumentService(docRepo, empRepo)
 	ecService := services.NewEmergencyContactService(ecRepo, empRepo)
+
+	// Services — Phase 2
+	ltService := services.NewLeaveTypeService(ltRepo)
+	lbService := services.NewLeaveBalanceService(lbRepo, ltRepo, empRepo)
+	lrService := services.NewLeaveRequestService(lrRepo, lbService, ltRepo, holidayRepo, empRepo)
+	holidayService := services.NewHolidayService(holidayRepo)
+	attService := services.NewAttendanceService(attRepo, holidayRepo, empRepo)
 
 	// Seed predefined roles
 	if err := roleService.InitializePredefinedRoles(); err != nil {
@@ -57,7 +71,14 @@ func main() {
 		log.Println("Super admin ready (admin@hr-system.com)")
 	}
 
-	// Handlers
+	// Seed default leave types
+	if err := ltService.SeedDefaults(); err != nil {
+		log.Printf("Warning: failed to seed leave types: %v", err)
+	} else {
+		log.Println("Leave types initialized")
+	}
+
+	// Handlers — Phase 1
 	authHandler := handlers.NewAuthHandler(userService)
 	deptHandler := handlers.NewDepartmentHandler(deptService)
 	posHandler := handlers.NewPositionHandler(posService)
@@ -65,8 +86,18 @@ func main() {
 	docHandler := handlers.NewEmployeeDocumentHandler(docService)
 	ecHandler := handlers.NewEmergencyContactHandler(ecService)
 
+	// Handlers — Phase 2
+	ltHandler := handlers.NewLeaveTypeHandler(ltService)
+	lbHandler := handlers.NewLeaveBalanceHandler(lbService, empService)
+	lrHandler := handlers.NewLeaveRequestHandler(lrService, empService)
+	holidayHandler := handlers.NewHolidayHandler(holidayService)
+	attHandler := handlers.NewAttendanceHandler(attService, empService)
+
 	// Routes
-	routes.RegisterRoutes(authHandler, deptHandler, posHandler, empHandler, docHandler, ecHandler)
+	routes.RegisterRoutes(
+		authHandler, deptHandler, posHandler, empHandler, docHandler, ecHandler,
+		ltHandler, lbHandler, lrHandler, attHandler, holidayHandler,
+	)
 
 	addr := ":" + cfg.ServerPort
 	log.Printf("HR System running on http://localhost%s", addr)

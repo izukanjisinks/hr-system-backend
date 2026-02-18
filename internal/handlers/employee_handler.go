@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strings"
 
 	"hr-system/internal/interfaces"
 	"hr-system/internal/middleware"
@@ -35,7 +34,7 @@ func (h *EmployeeHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EmployeeHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid employee ID")
 		return
@@ -81,7 +80,7 @@ func (h *EmployeeHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EmployeeHandler) Update(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid employee ID")
 		return
@@ -101,7 +100,7 @@ func (h *EmployeeHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EmployeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid employee ID")
 		return
@@ -114,22 +113,11 @@ func (h *EmployeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EmployeeHandler) GetDirectReports(w http.ResponseWriter, r *http.Request) {
-	// Path: /api/v1/hr/employees/:id/direct-reports
-	// Extract :id from path (second-to-last segment)
-	parts := strings.Split(strings.TrimSuffix(r.URL.Path, "/"), "/")
-	var idStr string
-	for i, p := range parts {
-		if p == "direct-reports" && i > 0 {
-			idStr = parts[i-1]
-			break
-		}
-	}
-	id, err := uuid.Parse(idStr)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid employee ID")
 		return
 	}
-
 	reports, err := h.service.GetDirectReports(id)
 	if err != nil {
 		utils.RespondError(w, http.StatusInternalServerError, "Failed to get direct reports")

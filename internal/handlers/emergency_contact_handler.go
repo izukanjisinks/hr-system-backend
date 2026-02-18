@@ -6,6 +6,8 @@ import (
 	"hr-system/internal/models"
 	"hr-system/internal/services"
 	"hr-system/pkg/utils"
+
+	"github.com/google/uuid"
 )
 
 type EmergencyContactHandler struct {
@@ -17,7 +19,7 @@ func NewEmergencyContactHandler(service *services.EmergencyContactService) *Emer
 }
 
 func (h *EmergencyContactHandler) Create(w http.ResponseWriter, r *http.Request) {
-	employeeID, err := employeeIDFromPath(r.URL.Path, "emergency-contacts")
+	employeeID, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid employee ID")
 		return
@@ -38,7 +40,7 @@ func (h *EmergencyContactHandler) Create(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *EmergencyContactHandler) ListByEmployee(w http.ResponseWriter, r *http.Request) {
-	employeeID, err := employeeIDFromPath(r.URL.Path, "emergency-contacts")
+	employeeID, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid employee ID")
 		return
@@ -53,7 +55,7 @@ func (h *EmergencyContactHandler) ListByEmployee(w http.ResponseWriter, r *http.
 }
 
 func (h *EmergencyContactHandler) Update(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid contact ID")
 		return
@@ -73,7 +75,7 @@ func (h *EmergencyContactHandler) Update(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *EmergencyContactHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid contact ID")
 		return

@@ -33,7 +33,7 @@ func (h *PositionHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PositionHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid position ID")
 		return
@@ -76,7 +76,7 @@ func (h *PositionHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PositionHandler) Update(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid position ID")
 		return
@@ -96,7 +96,7 @@ func (h *PositionHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PositionHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id, err := uuidFromPath(r.URL.Path)
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid position ID")
 		return

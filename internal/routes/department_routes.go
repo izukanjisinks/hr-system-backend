@@ -2,46 +2,27 @@ package routes
 
 import (
 	"net/http"
-	"strings"
 
 	"hr-system/internal/handlers"
 	"hr-system/internal/models"
 )
 
 func RegisterDepartmentRoutes(h *handlers.DepartmentHandler) {
-	// GET /api/v1/hr/departments/tree  — must be registered before /:id
-	http.HandleFunc("/api/v1/hr/departments/tree",
+	http.HandleFunc("GET /api/v1/hr/departments/tree",
 		withAuth(h.GetTree))
 
-	// Collection routes
-	http.HandleFunc("/api/v1/hr/departments", withAuth(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			h.List(w, r)
-		case http.MethodPost:
-			withAuthAndRole(h.Create, models.RoleSuperAdmin, models.RoleHRManager)(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}))
+	http.HandleFunc("GET /api/v1/hr/departments",
+		withAuth(h.List))
 
-	// Item routes: /api/v1/hr/departments/:id
-	http.HandleFunc("/api/v1/hr/departments/", withAuth(func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-		// Skip tree (handled above)
-		if strings.HasSuffix(path, "/tree") {
-			return
-		}
+	http.HandleFunc("POST /api/v1/hr/departments",
+		withAuthAndRole(h.Create, models.RoleSuperAdmin, models.RoleHRManager))
 
-		switch r.Method {
-		case http.MethodGet:
-			h.GetByID(w, r)
-		case http.MethodPut:
-			withAuthAndRole(h.Update, models.RoleSuperAdmin, models.RoleHRManager)(w, r)
-		case http.MethodDelete:
-			withAuthAndRole(h.Delete, models.RoleSuperAdmin)(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	}))
+	http.HandleFunc("GET /api/v1/hr/departments/{id}",
+		withAuth(h.GetByID))
+
+	http.HandleFunc("PUT /api/v1/hr/departments/{id}",
+		withAuthAndRole(h.Update, models.RoleSuperAdmin, models.RoleHRManager))
+
+	http.HandleFunc("DELETE /api/v1/hr/departments/{id}",
+		withAuthAndRole(h.Delete, models.RoleSuperAdmin))
 }
