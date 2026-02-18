@@ -8,6 +8,7 @@ import (
 	"hr-system/internal/config"
 	"hr-system/internal/database"
 	"hr-system/internal/handlers"
+	"hr-system/internal/jobs"
 	"hr-system/internal/repository"
 	"hr-system/internal/routes"
 	"hr-system/internal/services"
@@ -92,6 +93,12 @@ func main() {
 	lrHandler := handlers.NewLeaveRequestHandler(lrService, empService)
 	holidayHandler := handlers.NewHolidayHandler(holidayService)
 	attHandler := handlers.NewAttendanceHandler(attService, empService)
+
+	// Background jobs
+	jobs.NewMonthlyLeaveAccrualJob(empRepo, lbRepo, ltRepo).Start()
+	log.Println("Monthly leave accrual job scheduled")
+	jobs.NewYearEndCarryForwardJob(lbRepo, ltRepo).Start()
+	log.Println("Year-end carry-forward job scheduled")
 
 	// Routes
 	routes.RegisterRoutes(

@@ -21,7 +21,7 @@ func NewLeaveBalanceRepository() *LeaveBalanceRepository {
 func (r *LeaveBalanceRepository) GetByEmployeeAndYear(employeeID uuid.UUID, year int) ([]models.LeaveBalance, error) {
 	rows, err := r.db.Query(`
 		SELECT lb.id, lb.employee_id, lb.leave_type_id, lb.year, lb.total_entitled, lb.used, lb.pending,
-		       lb.carried_forward, lb.adjustment, lb.created_at, lb.updated_at,
+		       lb.carried_forward, lb.earned_leave_days, lb.created_at, lb.updated_at,
 		       lt.id, lt.name, lt.code
 		FROM leave_balances lb
 		JOIN leave_types lt ON lb.leave_type_id = lt.id
@@ -37,13 +37,38 @@ func (r *LeaveBalanceRepository) GetByEmployeeAndYear(employeeID uuid.UUID, year
 func (r *LeaveBalanceRepository) GetByEmployeeTypeYear(employeeID, leaveTypeID uuid.UUID, year int) (*models.LeaveBalance, error) {
 	row := r.db.QueryRow(`
 		SELECT lb.id, lb.employee_id, lb.leave_type_id, lb.year, lb.total_entitled, lb.used, lb.pending,
-		       lb.carried_forward, lb.adjustment, lb.created_at, lb.updated_at,
+		       lb.carried_forward, lb.earned_leave_days, lb.created_at, lb.updated_at,
 		       lt.id, lt.name, lt.code
 		FROM leave_balances lb
 		JOIN leave_types lt ON lb.leave_type_id = lt.id
 		WHERE lb.employee_id=$1 AND lb.leave_type_id=$2 AND lb.year=$3`,
 		employeeID, leaveTypeID, year)
 	return r.scanOne(row)
+}
+
+// GetAllByYear returns every leave_balance row for the given year across all employees,
+// joining leave_types so carry-forward rules are available.
+func (r *LeaveBalanceRepository) GetAllByYear(year int) ([]models.LeaveBalance, error) {
+	rows, err := r.db.Query(`
+		SELECT lb.id, lb.employee_id, lb.leave_type_id, lb.year, lb.total_entitled, lb.used, lb.pending,
+		       lb.carried_forward, lb.earned_leave_days, lb.created_at, lb.updated_at,
+		       lt.id, lt.name, lt.code
+		FROM leave_balances lb
+		JOIN leave_types lt ON lb.leave_type_id = lt.id
+		WHERE lb.year=$1
+		ORDER BY lb.employee_id, lt.name`, year)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return r.scanRows(rows)
+}
+
+func (r *LeaveBalanceRepository) SetCarriedForward(id uuid.UUID, days int) error {
+	_, err := r.db.Exec(`
+		UPDATE leave_balances SET carried_forward=$1, updated_at=NOW() WHERE id=$2`,
+		days, id)
+	return err
 }
 
 func (r *LeaveBalanceRepository) Upsert(lb *models.LeaveBalance) error {
@@ -53,15 +78,15 @@ func (r *LeaveBalanceRepository) Upsert(lb *models.LeaveBalance) error {
 	now := time.Now()
 	_, err := r.db.Exec(`
 		INSERT INTO leave_balances
-		(id, employee_id, leave_type_id, year, total_entitled, used, pending, carried_forward, adjustment, created_at, updated_at)
+		(id, employee_id, leave_type_id, year, total_entitled, used, pending, carried_forward, earned_leave_days, created_at, updated_at)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 		ON CONFLICT (employee_id, leave_type_id, year) DO UPDATE SET
 		  total_entitled=EXCLUDED.total_entitled,
 		  carried_forward=EXCLUDED.carried_forward,
-		  adjustment=EXCLUDED.adjustment,
+		  earned_leave_days=EXCLUDED.earned_leave_days,
 		  updated_at=EXCLUDED.updated_at`,
 		lb.ID, lb.EmployeeID, lb.LeaveTypeID, lb.Year, lb.TotalEntitled,
-		lb.Used, lb.Pending, lb.CarriedForward, lb.Adjustment, now, now,
+		lb.Used, lb.Pending, lb.CarriedForward, lb.EarnedLeaveDays, now, now,
 	)
 	return err
 }
@@ -94,7 +119,7 @@ func (r *LeaveBalanceRepository) ApproveLeave(employeeID, leaveTypeID uuid.UUID,
 
 func (r *LeaveBalanceRepository) Adjust(id uuid.UUID, delta int) error {
 	_, err := r.db.Exec(`
-		UPDATE leave_balances SET adjustment=adjustment+$1, updated_at=NOW() WHERE id=$2`,
+		UPDATE leave_balances SET earned_leave_days=earned_leave_days+$1, updated_at=NOW() WHERE id=$2`,
 		delta, id)
 	return err
 }
@@ -121,13 +146,13 @@ func (r *LeaveBalanceRepository) scanRow(row rowScanner) (*models.LeaveBalance, 
 	var ltName, ltCode string
 	err := row.Scan(
 		&lb.ID, &lb.EmployeeID, &lb.LeaveTypeID, &lb.Year, &lb.TotalEntitled, &lb.Used, &lb.Pending,
-		&lb.CarriedForward, &lb.Adjustment, &lb.CreatedAt, &lb.UpdatedAt,
+		&lb.CarriedForward, &lb.EarnedLeaveDays, &lb.CreatedAt, &lb.UpdatedAt,
 		&ltID, &ltName, &ltCode,
 	)
 	if err != nil {
 		return nil, err
 	}
-	lb.Balance = lb.TotalEntitled + lb.CarriedForward + lb.Adjustment - lb.Used - lb.Pending
+	lb.Balance = lb.TotalEntitled + lb.CarriedForward + lb.EarnedLeaveDays - lb.Used - lb.Pending
 	lb.LeaveType = &models.LeaveType{ID: ltID, Name: ltName, Code: ltCode}
 	return &lb, nil
 }
