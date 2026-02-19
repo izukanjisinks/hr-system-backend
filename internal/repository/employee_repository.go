@@ -47,6 +47,11 @@ func (r *EmployeeRepository) Create(emp *models.Employee) error {
 	)
 	return err
 }
+func (r *EmployeeRepository) GetByUserID(userID uuid.UUID) (*models.Employee, error) {
+	query := fmt.Sprintf(`SELECT %s FROM employees e WHERE e.user_id=$1 AND e.deleted_at IS NULL`, employeeSelectCols)
+	row := r.db.QueryRow(query, userID)
+	return r.scanEmployee(row)
+}
 
 func (r *EmployeeRepository) GetByID(id uuid.UUID) (*models.Employee, error) {
 	query := fmt.Sprintf(`SELECT %s FROM employees e WHERE e.id=$1 AND e.deleted_at IS NULL`, employeeSelectCols)

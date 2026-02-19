@@ -45,7 +45,7 @@ func (s *DashboardService) GetEmployeeDashboard(userID uuid.UUID) (*models.Emplo
 	// if err != nil {
 	// 	return nil, err
 	// }
-	emp, err := s.empRepo.GetByID(userID)
+	emp, err := s.empRepo.GetByUserID(userID)
 	if err != nil {
 		return nil, err
 	}

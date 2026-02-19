@@ -673,6 +673,21 @@
           }
         }
       ]
+    },
+
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Get My Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/dashboard/me", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","dashboard","me"] },
+            "description": "Returns dashboard stats for the currently authenticated employee including: employee details, holidays this month, leave days earned this month, yearly entitlement, and total leave requests."
+          }
+        }
+      ]
     }
 
   ]
