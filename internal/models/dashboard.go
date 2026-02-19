@@ -27,6 +27,11 @@ type EmployeDetails struct {
 }
 
 type Holidays struct {
-	Total   int       `json:"total"`
-	Details []Holiday `json:"details"`
+	Total   int              `json:"total"`
+	Details []HolidayDetails `json:"details"`
+}
+
+type HolidayDetails struct {
+	Name string `json:"name"`
+	Date string `json:"date"` // Format: "2026-01-01"
 }

@@ -95,7 +95,7 @@ func main() {
 	attHandler := handlers.NewAttendanceHandler(attService, empService)
 
 	// Dashboard
-	dashboardService := services.NewDashboardService(empRepo, posRepo, deptRepo, lbRepo, lrRepo, holidayRepo)
+	dashboardService := services.NewDashboardService(empRepo, posRepo, deptRepo, lbRepo, lrRepo)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
 
 	// Background jobs

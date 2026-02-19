@@ -1,22 +1,23 @@
 package services
 
 import (
+	"fmt"
 	"time"
 
 	"hr-system/internal/interfaces"
 	"hr-system/internal/models"
 	"hr-system/internal/repository"
+	"hr-system/pkg/utils"
 
 	"github.com/google/uuid"
 )
 
 type DashboardService struct {
-	empRepo     *repository.EmployeeRepository
-	posRepo     *repository.PositionRepository
-	deptRepo    *repository.DepartmentRepository
-	lbRepo      *repository.LeaveBalanceRepository
-	lrRepo      *repository.LeaveRequestRepository
-	holidayRepo *repository.HolidayRepository
+	empRepo  *repository.EmployeeRepository
+	posRepo  *repository.PositionRepository
+	deptRepo *repository.DepartmentRepository
+	lbRepo   *repository.LeaveBalanceRepository
+	lrRepo   *repository.LeaveRequestRepository
 }
 
 func NewDashboardService(
@@ -25,15 +26,13 @@ func NewDashboardService(
 	deptRepo *repository.DepartmentRepository,
 	lbRepo *repository.LeaveBalanceRepository,
 	lrRepo *repository.LeaveRequestRepository,
-	holidayRepo *repository.HolidayRepository,
 ) *DashboardService {
 	return &DashboardService{
-		empRepo:     empRepo,
-		posRepo:     posRepo,
-		deptRepo:    deptRepo,
-		lbRepo:      lbRepo,
-		lrRepo:      lrRepo,
-		holidayRepo: holidayRepo,
+		empRepo:  empRepo,
+		posRepo:  posRepo,
+		deptRepo: deptRepo,
+		lbRepo:   lbRepo,
+		lrRepo:   lrRepo,
 	}
 }
 
@@ -91,21 +90,14 @@ func (s *DashboardService) GetEmployeeDashboard(userID uuid.UUID) (*models.Emplo
 	// 5. Employment period in months (hire date → today).
 	employmentMonths := monthsBetween(emp.HireDate, now)
 
-	// 6. Holidays this month.
-	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
-	monthEnd := monthStart.AddDate(0, 1, -1)
-	holidays, err := s.holidayRepo.List(now.Year(), "")
-	if err != nil {
-		holidays = []models.Holiday{}
-	}
-	var thisMonthHolidays []models.Holiday
-	for _, h := range holidays {
-		if !h.Date.Before(monthStart) && !h.Date.After(monthEnd) {
-			thisMonthHolidays = append(thisMonthHolidays, h)
-		}
-	}
-	if thisMonthHolidays == nil {
-		thisMonthHolidays = []models.Holiday{}
+	// 6. Holidays this month (Zambian holidays only).
+	zambianHolidays := utils.GetHolidaysForMonth(now.Month())
+	thisMonthHolidays := make([]models.HolidayDetails, 0, len(zambianHolidays))
+	for _, zh := range zambianHolidays {
+		thisMonthHolidays = append(thisMonthHolidays, models.HolidayDetails{
+			Name: zh.Name,
+			Date: fmt.Sprintf("%d-%02d-%02d", now.Year(), zh.Month, zh.Day),
+		})
 	}
 
 	// 7. Leave days earned this month = earned_leave_days for the AL balance
