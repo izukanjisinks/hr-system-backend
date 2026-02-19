@@ -94,6 +94,10 @@ func main() {
 	holidayHandler := handlers.NewHolidayHandler(holidayService)
 	attHandler := handlers.NewAttendanceHandler(attService, empService)
 
+	// Dashboard
+	dashboardService := services.NewDashboardService(empRepo, posRepo, deptRepo, lbRepo, lrRepo, holidayRepo)
+	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
+
 	// Background jobs
 	jobs.NewMonthlyLeaveAccrualJob(empRepo, lbRepo, ltRepo).Start()
 	log.Println("Monthly leave accrual job scheduled")
@@ -103,7 +107,7 @@ func main() {
 	// Routes
 	routes.RegisterRoutes(
 		authHandler, deptHandler, posHandler, empHandler, docHandler, ecHandler,
-		ltHandler, lbHandler, lrHandler, attHandler, holidayHandler,
+		ltHandler, lbHandler, lrHandler, attHandler, holidayHandler, dashboardHandler,
 	)
 
 	addr := ":" + cfg.ServerPort
