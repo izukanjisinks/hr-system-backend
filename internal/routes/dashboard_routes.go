@@ -7,5 +7,6 @@ import (
 )
 
 func RegisterDashboardRoutes(h *handlers.DashboardHandler) {
-	http.HandleFunc("GET /api/v1/hr/dashboard/me", withAuth(h.GetMyDashboard))
+	// Register without method prefix to allow OPTIONS through middleware
+	http.HandleFunc("/api/v1/hr/dashboard/me", withAuth(h.GetMyDashboard))
 }

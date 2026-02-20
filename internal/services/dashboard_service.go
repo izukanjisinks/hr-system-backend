@@ -108,7 +108,8 @@ func (s *DashboardService) GetEmployeeDashboard(userID uuid.UUID) (*models.Emplo
 	if err == nil {
 		for _, lb := range alBalance {
 			if lb.LeaveType != nil && lb.LeaveType.Code == "AL" {
-				yearlyEntitlement = lb.TotalEntitled + lb.CarriedForward
+				// Yearly entitlement = base days from leave type (e.g., 24 for AL)
+				yearlyEntitlement = lb.TotalEntitled
 				// earned_leave_days accumulates +2 per month; divide by months elapsed
 				elapsed := int(now.Month())
 				if elapsed > 0 {

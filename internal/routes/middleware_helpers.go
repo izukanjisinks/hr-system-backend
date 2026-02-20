@@ -7,17 +7,37 @@ import (
 )
 
 func withAuth(handler http.HandlerFunc) http.HandlerFunc {
-	return middleware.CORS(func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Apply CORS headers first
+		middleware.ApplyCORSHeaders(w, r)
+
+		// Handle preflight
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Then apply JWT auth
 		middleware.JWTAuth(http.HandlerFunc(handler)).ServeHTTP(w, r)
-	})
+	}
 }
 
 func withAuthAndRole(handler http.HandlerFunc, roles ...string) http.HandlerFunc {
-	return middleware.CORS(func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Apply CORS headers first
+		middleware.ApplyCORSHeaders(w, r)
+
+		// Handle preflight
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Then apply JWT auth and role check
 		middleware.JWTAuth(
 			middleware.RequireAnyRole(roles...)(http.HandlerFunc(handler)),
 		).ServeHTTP(w, r)
-	})
+	}
 }
 
 func withPublic(handler http.HandlerFunc) http.HandlerFunc {

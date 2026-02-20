@@ -12,36 +12,36 @@ func RegisterEmployeeRoutes(
 	docH *handlers.EmployeeDocumentHandler,
 	ecH *handlers.EmergencyContactHandler,
 ) {
-	http.HandleFunc("GET /api/v1/hr/employees",
+	http.HandleFunc("/api/v1/hr/employees",
 		withAuthAndRole(empH.List, models.RoleSuperAdmin, models.RoleHRManager, models.RoleManager))
 
-	http.HandleFunc("POST /api/v1/hr/employees",
+	http.HandleFunc("/api/v1/hr/employees",
 		withAuthAndRole(empH.Create, models.RoleSuperAdmin, models.RoleHRManager))
 
-	http.HandleFunc("GET /api/v1/hr/employees/{id}",
+	http.HandleFunc("/api/v1/hr/employees/{id}",
 		withAuth(empH.GetByID))
 
-	http.HandleFunc("PUT /api/v1/hr/employees/{id}",
+	http.HandleFunc("/api/v1/hr/employees/{id}",
 		withAuthAndRole(empH.Update, models.RoleSuperAdmin, models.RoleHRManager))
 
-	http.HandleFunc("DELETE /api/v1/hr/employees/{id}",
+	http.HandleFunc("/api/v1/hr/employees/{id}",
 		withAuthAndRole(empH.Delete, models.RoleSuperAdmin))
 
-	http.HandleFunc("GET /api/v1/hr/employees/{id}/direct-reports",
+	http.HandleFunc("/api/v1/hr/employees/{id}/direct-reports",
 		withAuth(empH.GetDirectReports))
 
-	http.HandleFunc("GET /api/v1/hr/employees/{id}/documents",
+	http.HandleFunc("/api/v1/hr/employees/{id}/documents",
 		withAuth(docH.ListByEmployee))
 
-	http.HandleFunc("POST /api/v1/hr/employees/{id}/documents",
+	http.HandleFunc("/api/v1/hr/employees/{id}/documents",
 		withAuth(docH.Create))
 
-	http.HandleFunc("PUT /api/v1/hr/employees/{id}/documents/{did}/verify",
+	http.HandleFunc("/api/v1/hr/employees/{id}/documents/{did}/verify",
 		withAuthAndRole(docH.Verify, models.RoleSuperAdmin, models.RoleHRManager))
 
-	http.HandleFunc("GET /api/v1/hr/employees/{id}/emergency-contacts",
+	http.HandleFunc("/api/v1/hr/employees/{id}/emergency-contacts",
 		withAuth(ecH.ListByEmployee))
 
-	http.HandleFunc("POST /api/v1/hr/employees/{id}/emergency-contacts",
+	http.HandleFunc("/api/v1/hr/employees/{id}/emergency-contacts",
 		withAuth(ecH.Create))
 }
