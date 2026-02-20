@@ -9,6 +9,7 @@ import (
 	"hr-system/internal/database"
 	"hr-system/internal/handlers"
 	"hr-system/internal/jobs"
+	"hr-system/internal/middleware"
 	"hr-system/internal/repository"
 	"hr-system/internal/routes"
 	"hr-system/internal/services"
@@ -104,15 +105,18 @@ func main() {
 	jobs.NewYearEndCarryForwardJob(lbRepo, ltRepo).Start()
 	log.Println("Year-end carry-forward job scheduled")
 
-	// Routes
+	// Register routes
 	routes.RegisterRoutes(
 		authHandler, deptHandler, posHandler, empHandler, docHandler, ecHandler,
 		ltHandler, lbHandler, lrHandler, attHandler, holidayHandler, dashboardHandler,
 	)
 
+	// Apply CORS middleware globally to the default mux
+	handler := middleware.CORS(http.DefaultServeMux)
+
 	addr := ":" + cfg.ServerPort
 	log.Printf("HR System running on http://localhost%s", addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

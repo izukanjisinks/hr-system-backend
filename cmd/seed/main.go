@@ -362,6 +362,49 @@ func main() {
 	}
 	log.Printf("  Inserted %d documents\n", len(docs))
 
+	// ------------------------------------------------------- leave types
+	log.Println("Seeding leave types...")
+	leaveTypes := []struct {
+		code, name                     string
+		defaultDays                    int
+		isPaid, isCarryForward         bool
+		maxCarryForwardDays            int
+		requiresApproval, requiresDoc  bool
+	}{
+		{"AL", "Annual Leave", 24, true, true, 5, true, false},
+		{"SL", "Sick Leave", 15, true, false, 0, true, true},
+		{"PL", "Parental Leave", 90, true, false, 0, true, false},
+		{"UL", "Unpaid Leave", 0, false, false, 0, true, false},
+		{"CL", "Compassionate Leave", 5, true, false, 0, true, false},
+		{"ML", "Marriage Leave", 3, true, false, 0, true, false},
+	}
+	leaveTypeIDs := map[string]uuid.UUID{}
+	for _, lt := range leaveTypes {
+		id := insertLeaveType(db, lt.code, lt.name, lt.defaultDays, lt.isPaid, lt.isCarryForward, lt.maxCarryForwardDays, lt.requiresApproval, lt.requiresDoc)
+		leaveTypeIDs[lt.code] = id
+	}
+	log.Printf("  Inserted %d leave types\n", len(leaveTypeIDs))
+
+	// ------------------------------------------------------- leave balances
+	log.Println("Seeding leave balances for 2026...")
+	currentYear := 2026
+	// Create leave balances for all employees
+	for empNum, empID := range empIDs {
+		_ = empNum
+		for _, lt := range leaveTypes {
+			ltID := leaveTypeIDs[lt.code]
+			insertLeaveBalance(db, empID, ltID, currentYear, lt.defaultDays, 0, 0, 0, 0)
+		}
+	}
+	// Also create for managers
+	for _, empID := range mgrEmpIDs {
+		for _, lt := range leaveTypes {
+			ltID := leaveTypeIDs[lt.code]
+			insertLeaveBalance(db, empID, ltID, currentYear, lt.defaultDays, 0, 0, 0, 0)
+		}
+	}
+	log.Printf("  Inserted leave balances for %d employees\n", len(allEmpIDs))
+
 	log.Println("Seed complete!")
 	printCredentials()
 }
@@ -490,6 +533,41 @@ func insertDocument(db *sql.DB, empID uuid.UUID, docType, title, fileName string
 	)
 	if err != nil {
 		log.Fatalf("insertDocument %s: %v", fileName, err)
+	}
+}
+
+func insertLeaveType(db *sql.DB, code, name string, defaultDays int, isPaid, isCarryForward bool, maxCarryForwardDays int, requiresApproval, requiresDoc bool) uuid.UUID {
+	var id uuid.UUID
+	err := db.QueryRow(`
+		INSERT INTO leave_types (
+			code, name, description, default_days_per_year,
+			is_paid, is_carry_forward_allowed, max_carry_forward_days,
+			requires_approval, requires_document, is_active
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name
+		RETURNING id`,
+		code, name, "", defaultDays,
+		isPaid, isCarryForward, maxCarryForwardDays,
+		requiresApproval, requiresDoc, true,
+	).Scan(&id)
+	if err != nil {
+		log.Fatalf("insertLeaveType %s: %v", code, err)
+	}
+	return id
+}
+
+func insertLeaveBalance(db *sql.DB, empID, leaveTypeID uuid.UUID, year, totalEntitled, carriedForward, earnedLeaveDays, used, pending int) {
+	_, err := db.Exec(`
+		INSERT INTO leave_balances (
+			employee_id, leave_type_id, year,
+			total_entitled, carried_forward, earned_leave_days, used, pending
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (employee_id, leave_type_id, year) DO NOTHING`,
+		empID, leaveTypeID, year,
+		totalEntitled, carriedForward, earnedLeaveDays, used, pending,
+	)
+	if err != nil {
+		log.Fatalf("insertLeaveBalance emp=%s year=%d: %v", empID, year, err)
 	}
 }
 

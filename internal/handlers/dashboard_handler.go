@@ -17,12 +17,6 @@ func NewDashboardHandler(svc *services.DashboardService) *DashboardHandler {
 }
 
 func (h *DashboardHandler) GetMyDashboard(w http.ResponseWriter, r *http.Request) {
-	// Only allow GET requests
-	if r.Method != http.MethodGet {
-		utils.RespondError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok {
 		utils.RespondError(w, http.StatusUnauthorized, "Unauthorized")

@@ -7,6 +7,9 @@ import (
 )
 
 func RegisterPublicRoutes(authHandler *handlers.AuthHandler) {
-	http.HandleFunc("/health", withPublic(handlers.HealthHandler))
-	http.HandleFunc("/api/v1/auth/login", withPublic(authHandler.Login))
+	// Health endpoint
+	http.HandleFunc("GET /health", withPublic(handlers.HealthHandler))
+
+	// Login endpoint
+	http.HandleFunc("POST /api/v1/auth/login", withPublic(authHandler.Login))
 }
