@@ -67,7 +67,7 @@ func main() {
 	attService := services.NewAttendanceService(attRepo, holidayRepo, empRepo)
 
 	// Workflow Service
-	workflowService := services.NewWorkflowService(workflowRepo, instanceRepo, taskRepo, historyRepo, userRepo)
+	workflowService := services.NewWorkflowService(workflowRepo, instanceRepo, taskRepo, historyRepo, userRepo, empRepo)
 
 	// Seed predefined roles
 	if err := roleService.InitializePredefinedRoles(); err != nil {
@@ -111,6 +111,9 @@ func main() {
 	// Workflow Handler
 	workflowHandler := handlers.NewWorkflowHandler(workflowService)
 
+	// Workflow Admin Handler
+	workflowAdminHandler := handlers.NewWorkflowAdminHandler(workflowRepo)
+
 	// Background jobs
 	jobs.NewMonthlyLeaveAccrualJob(empRepo, lbRepo, ltRepo).Start()
 	log.Println("Monthly leave accrual job scheduled")
@@ -121,7 +124,7 @@ func main() {
 	routes.RegisterRoutes(
 		authHandler, deptHandler, posHandler, empHandler, docHandler, ecHandler,
 		ltHandler, lbHandler, lrHandler, attHandler, holidayHandler, dashboardHandler,
-		workflowHandler,
+		workflowHandler, workflowAdminHandler,
 	)
 
 	// Apply CORS middleware globally to the default mux

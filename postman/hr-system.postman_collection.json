@@ -5,7 +5,7 @@
     "description": "Complete API collection for the HR System. Run Login first — it auto-sets {{token}}."
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "baseUrl", "value": "http://localhost:8081", "type": "string" },
     { "key": "token",   "value": "",                      "type": "string" }
   ],
   "item": [
@@ -685,6 +685,180 @@
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/hr/dashboard/me", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","dashboard","me"] },
             "description": "Returns dashboard stats for the currently authenticated employee including: employee details, holidays this month, leave days earned this month, yearly entitlement, and total leave requests."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Workflows (User)",
+      "item": [
+        {
+          "name": "Get My Tasks",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/workflow/my-tasks",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","workflow","my-tasks"],
+              "query": [{ "key": "status", "value": "pending", "disabled": true, "description": "pending | in_progress | completed | skipped" }]
+            },
+            "description": "Get all tasks assigned to me, optionally filtered by status"
+          }
+        },
+        {
+          "name": "Get My Pending Tasks",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/workflow/my-tasks/pending", "host": ["{{baseUrl}}"], "path": ["api","v1","workflow","my-tasks","pending"] },
+            "description": "Get only pending tasks assigned to me"
+          }
+        },
+        {
+          "name": "Get Task Details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/workflow/tasks/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","workflow","tasks",":id"], "variable": [{ "key": "id", "value": "<task-uuid>" }] },
+            "description": "Get specific task details with full workflow context"
+          }
+        },
+        {
+          "name": "Initiate Workflow",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/workflow/instances", "host": ["{{baseUrl}}"], "path": ["api","v1","workflow","instances"] },
+            "body": { "mode": "raw", "raw": "{\n  \"workflow_name\": \"Leave Request Approval\",\n  \"task_details\": {\n    \"task_id\": \"leave-req-001\",\n    \"task_type\": \"leave_request\",\n    \"task_description\": \"Annual Leave: 5 days (2026-03-10 to 2026-03-14)\",\n    \"sender_details\": {\n      \"sender_id\": \"<employee-uuid>\",\n      \"sender_name\": \"John Doe\",\n      \"position\": \"Software Engineer\",\n      \"department\": \"Engineering\"\n    }\n  },\n  \"priority\": \"medium\",\n  \"due_date\": \"2026-03-01T00:00:00Z\"\n}" },
+            "description": "Start a new workflow instance. Typically called by other services."
+          }
+        },
+        {
+          "name": "Get Instance by Task ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/workflow/task/:task_id/instance", "host": ["{{baseUrl}}"], "path": ["api","v1","workflow","task",":task_id","instance"], "variable": [{ "key": "task_id", "value": "leave-req-001" }] },
+            "description": "Get workflow instance by the associated task ID (e.g., leave request ID)"
+          }
+        },
+        {
+          "name": "Process Action",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/workflow/instances/:id/action", "host": ["{{baseUrl}}"], "path": ["api","v1","workflow","instances",":id","action"], "variable": [{ "key": "id", "value": "<instance-uuid>" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"approve\",\n  \"comments\": \"Looks good. Approved.\"\n}" },
+            "description": "Process an action on a workflow instance. Actions: submit, approve, reject, reassign"
+          }
+        },
+        {
+          "name": "Get Instance History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/workflow/instances/:id/history", "host": ["{{baseUrl}}"], "path": ["api","v1","workflow","instances",":id","history"], "variable": [{ "key": "id", "value": "<instance-uuid>" }] },
+            "description": "Get complete audit trail for a workflow instance"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Workflows (Admin)",
+      "item": [
+        {
+          "name": "Get All Workflows",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflows", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflows"] },
+            "description": "Requires SuperAdmin or HRManager role. Get all active workflow templates."
+          }
+        },
+        {
+          "name": "Get Workflow by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflows/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflows",":id"], "variable": [{ "key": "id", "value": "<workflow-uuid>" }] },
+            "description": "Requires SuperAdmin or HRManager role. Get specific workflow template."
+          }
+        },
+        {
+          "name": "Create Workflow",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflows", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflows"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Equipment Request Approval\",\n  \"description\": \"Workflow for equipment procurement requests\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Create new workflow template."
+          }
+        },
+        {
+          "name": "Get Workflow Structure",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflows/:id/structure", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflows",":id","structure"], "variable": [{ "key": "id", "value": "<workflow-uuid>" }] },
+            "description": "Requires SuperAdmin or HRManager role. Get complete workflow structure including steps and transitions."
+          }
+        },
+        {
+          "name": "Get Workflow Steps",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflows/:id/steps", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflows",":id","steps"], "variable": [{ "key": "id", "value": "<workflow-uuid>" }] },
+            "description": "Requires SuperAdmin or HRManager role. Get all steps for a workflow."
+          }
+        },
+        {
+          "name": "Get Step by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-steps/:step_id", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-steps",":step_id"], "variable": [{ "key": "step_id", "value": "<step-uuid>" }] },
+            "description": "Requires SuperAdmin or HRManager role. Get specific workflow step."
+          }
+        },
+        {
+          "name": "Create Workflow Step",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-steps", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-steps"] },
+            "body": { "mode": "raw", "raw": "{\n  \"workflow_id\": \"<workflow-uuid>\",\n  \"step_name\": \"CFO Approval\",\n  \"step_order\": 3,\n  \"initial\": false,\n  \"final\": false,\n  \"allowed_roles\": [\"cfo\", \"finance_manager\"],\n  \"requires_all_approvers\": false,\n  \"min_approvals\": 1\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Create new step in workflow."
+          }
+        },
+        {
+          "name": "Get Workflow Transitions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflows/:id/transitions", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflows",":id","transitions"], "variable": [{ "key": "id", "value": "<workflow-uuid>" }] },
+            "description": "Requires SuperAdmin or HRManager role. Get all transitions for a workflow."
+          }
+        },
+        {
+          "name": "Get Valid Transitions from Step",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-steps/:step_id/transitions", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-steps",":step_id","transitions"], "variable": [{ "key": "step_id", "value": "<step-uuid>" }] },
+            "description": "Requires SuperAdmin or HRManager role. Get valid transitions from a specific step."
+          }
+        },
+        {
+          "name": "Create Workflow Transition",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-transitions", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-transitions"] },
+            "body": { "mode": "raw", "raw": "{\n  \"workflow_id\": \"<workflow-uuid>\",\n  \"from_step_id\": \"<step-uuid>\",\n  \"to_step_id\": \"<step-uuid>\",\n  \"action_name\": \"approve\",\n  \"condition_type\": \"role_check\",\n  \"condition_value\": \"\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Create new transition between workflow steps."
           }
         }
       ]

@@ -33,9 +33,9 @@ type WorkflowTransition struct {
 	WorkflowID     string    `json:"workflow_id"`
 	FromStepID     string    `json:"from_step_id"`
 	ToStepID       string    `json:"to_step_id"`
-	ActionName     string    `json:"action_name"`     // "submit", "approve", "reject", "reassign"
-	ConditionType  string    `json:"condition_type"`  // e.g., "user_role", "assigned_user_only"
-	ConditionValue string    `json:"condition_value"` // JSON for complex conditions
+	ActionName     string    `json:"action_name"`      // "submit", "approve", "reject", "reassign"
+	ConditionType  *string   `json:"condition_type"`   // e.g., "user_role", "assigned_user_only"
+	ConditionValue *string   `json:"condition_value"`  // JSON for complex conditions
 	CreatedAt      time.Time `json:"created_at"`
 }
 

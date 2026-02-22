@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"hr-system/internal/models"
 	"hr-system/internal/repository"
 )
@@ -16,6 +18,7 @@ type WorkflowService struct {
 	taskRepo      *repository.AssignedTaskRepository
 	historyRepo   *repository.WorkflowHistoryRepository
 	userRepo      *repository.UserRepository
+	employeeRepo  *repository.EmployeeRepository
 }
 
 func NewWorkflowService(
@@ -24,6 +27,7 @@ func NewWorkflowService(
 	taskRepo *repository.AssignedTaskRepository,
 	historyRepo *repository.WorkflowHistoryRepository,
 	userRepo *repository.UserRepository,
+	employeeRepo *repository.EmployeeRepository,
 ) *WorkflowService {
 	return &WorkflowService{
 		workflowRepo:  workflowRepo,
@@ -31,6 +35,7 @@ func NewWorkflowService(
 		taskRepo:      taskRepo,
 		historyRepo:   historyRepo,
 		userRepo:      userRepo,
+		employeeRepo:  employeeRepo,
 	}
 }
 
@@ -116,7 +121,12 @@ func (s *WorkflowService) InitiateWorkflow(
 	}
 
 	// Get initiator name for history
-	initiator, err := s.userRepo.GetByID(initiatorID)
+	initiatorUUID, err := uuid.Parse(initiatorID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid initiator ID: %w", err)
+	}
+
+	initiator, err := s.employeeRepo.GetByUserID(initiatorUUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get initiator: %w", err)
 	}
@@ -229,7 +239,12 @@ func (s *WorkflowService) ProcessAction(
 	}
 
 	// Get performer name for history
-	performer, err := s.userRepo.GetByID(performedByID)
+	performerUUID, err := uuid.Parse(performedByID)
+	if err != nil {
+		return fmt.Errorf("invalid performer ID: %w", err)
+	}
+
+	performer, err := s.employeeRepo.GetByUserID(performerUUID)
 	if err != nil {
 		return fmt.Errorf("failed to get performer: %w", err)
 	}
@@ -300,20 +315,24 @@ func (s *WorkflowService) determineAssignee(step *models.WorkflowStep, taskDetai
 // Helper: Check if user has permission to perform action on a step
 func (s *WorkflowService) checkPermission(userID string, step *models.WorkflowStep) error {
 	// Get user
-	user, err := s.userRepo.GetByID(userID)
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	user, err := s.userRepo.GetUserByID(userUUID)
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
 
-	// Get user's role
-	role, err := s.userRepo.GetRoleByUserID(userID)
-	if err != nil {
-		return fmt.Errorf("user role not found: %w", err)
+	// Check if user has a role
+	if user.Role == nil {
+		return fmt.Errorf("user %s has no role assigned", user.Email)
 	}
 
 	// Check if user's role is in allowed roles
 	for _, allowedRole := range step.AllowedRoles {
-		if role.Code == allowedRole {
+		if user.Role.Name == allowedRole {
 			return nil
 		}
 	}

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS workflows (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     is_active BOOLEAN DEFAULT true,
-    created_by UUID NOT NULL REFERENCES users(id),
+    created_by UUID NOT NULL REFERENCES users(user_id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS workflow_instances (
     current_step_id UUID NOT NULL REFERENCES workflow_steps(id),
     status VARCHAR(50) NOT NULL DEFAULT 'pending', -- 'pending', 'in_progress', 'completed', 'rejected', 'cancelled'
     task_details JSONB NOT NULL, -- Contains TaskDetails structure
-    created_by UUID NOT NULL REFERENCES users(id),
+    created_by UUID NOT NULL REFERENCES users(user_id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP,
@@ -63,8 +63,8 @@ CREATE TABLE IF NOT EXISTS assigned_tasks (
     instance_id UUID NOT NULL REFERENCES workflow_instances(id) ON DELETE CASCADE,
     step_id UUID NOT NULL REFERENCES workflow_steps(id),
     step_name VARCHAR(255) NOT NULL, -- Denormalized for performance
-    assigned_to UUID NOT NULL REFERENCES users(id),
-    assigned_by UUID NOT NULL REFERENCES users(id),
+    assigned_to UUID NOT NULL REFERENCES users(user_id),
+    assigned_by UUID NOT NULL REFERENCES users(user_id),
     status VARCHAR(50) NOT NULL DEFAULT 'pending', -- 'pending', 'in_progress', 'completed', 'skipped'
     due_date TIMESTAMP,
     completed_at TIMESTAMP,
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS workflow_history (
     from_step_id UUID REFERENCES workflow_steps(id), -- Nullable for initial creation
     to_step_id UUID NOT NULL REFERENCES workflow_steps(id),
     action_taken VARCHAR(100) NOT NULL, -- 'submit', 'approve', 'reject', 'reassign'
-    performed_by UUID NOT NULL REFERENCES users(id),
+    performed_by UUID NOT NULL REFERENCES users(user_id),
     performed_by_name VARCHAR(255) NOT NULL, -- Denormalized for history preservation
     comments TEXT,
     metadata JSONB, -- Additional context

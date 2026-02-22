@@ -11,7 +11,7 @@ DECLARE
     v_step_completed_id UUID;
 BEGIN
     -- Get the super admin user ID (created in the seeding process)
-    SELECT id INTO v_super_admin_id FROM users WHERE email = 'admin@hr-system.com' LIMIT 1;
+    SELECT user_id INTO v_super_admin_id FROM users WHERE email = 'admin@hr-system.com' LIMIT 1;
 
     IF v_super_admin_id IS NULL THEN
         RAISE NOTICE 'Super admin not found, using a placeholder UUID';
