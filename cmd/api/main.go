@@ -44,6 +44,12 @@ func main() {
 	holidayRepo := repository.NewHolidayRepository()
 	attRepo := repository.NewAttendanceRepository()
 
+	// Workflow Repositories
+	workflowRepo := repository.NewWorkflowRepository()
+	instanceRepo := repository.NewWorkflowInstanceRepository()
+	taskRepo := repository.NewAssignedTaskRepository()
+	historyRepo := repository.NewWorkflowHistoryRepository()
+
 	// Services — Phase 1
 	roleService := services.NewRoleService(roleRepo)
 	userService := services.NewUserService(userRepo, roleRepo)
@@ -59,6 +65,9 @@ func main() {
 	lrService := services.NewLeaveRequestService(lrRepo, lbService, ltRepo, holidayRepo, empRepo)
 	holidayService := services.NewHolidayService(holidayRepo)
 	attService := services.NewAttendanceService(attRepo, holidayRepo, empRepo)
+
+	// Workflow Service
+	workflowService := services.NewWorkflowService(workflowRepo, instanceRepo, taskRepo, historyRepo, userRepo)
 
 	// Seed predefined roles
 	if err := roleService.InitializePredefinedRoles(); err != nil {
@@ -99,6 +108,9 @@ func main() {
 	dashboardService := services.NewDashboardService(empRepo, posRepo, deptRepo, lbRepo, lrRepo)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
 
+	// Workflow Handler
+	workflowHandler := handlers.NewWorkflowHandler(workflowService)
+
 	// Background jobs
 	jobs.NewMonthlyLeaveAccrualJob(empRepo, lbRepo, ltRepo).Start()
 	log.Println("Monthly leave accrual job scheduled")
@@ -109,6 +121,7 @@ func main() {
 	routes.RegisterRoutes(
 		authHandler, deptHandler, posHandler, empHandler, docHandler, ecHandler,
 		ltHandler, lbHandler, lrHandler, attHandler, holidayHandler, dashboardHandler,
+		workflowHandler,
 	)
 
 	// Apply CORS middleware globally to the default mux

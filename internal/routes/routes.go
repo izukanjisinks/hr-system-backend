@@ -17,6 +17,7 @@ func RegisterRoutes(
 	attHandler *handlers.AttendanceHandler,
 	holidayHandler *handlers.HolidayHandler,
 	dashboardHandler *handlers.DashboardHandler,
+	workflowHandler *handlers.WorkflowHandler,
 ) {
 	RegisterPublicRoutes(authHandler)
 	RegisterAuthRoutes(authHandler)
@@ -27,4 +28,5 @@ func RegisterRoutes(
 	RegisterAttendanceRoutes(attHandler)
 	RegisterHolidayRoutes(holidayHandler)
 	RegisterDashboardRoutes(dashboardHandler)
+	RegisterWorkflowRoutes(workflowHandler)
 }
