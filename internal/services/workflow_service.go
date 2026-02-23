@@ -257,7 +257,7 @@ func (s *WorkflowService) ProcessAction(
 		assigneeUUID, _ := uuid.Parse(assigneeID)
 		if assignee, err := s.userRepo.GetUserByID(assigneeUUID); err == nil {
 			newTask.TaskDetails = &instance.TaskDetails // Add task details for email
-			s.notifyTaskAssignment(newTask, assignee, instance)
+			go s.notifyTaskAssignment(newTask, assignee, instance)
 		}
 	}
 
@@ -298,7 +298,7 @@ func (s *WorkflowService) ProcessAction(
 		if instance.TaskDetails.TaskType == "leave_request" {
 			leaveRequestID, _ := uuid.Parse(instance.TaskDetails.TaskID)
 			reviewerName := performer.FirstName + " " + performer.LastName
-			s.notifyLeaveRequestOutcome(leaveRequestID, !isRejection, reviewerName)
+			go s.notifyLeaveRequestOutcome(leaveRequestID, !isRejection, reviewerName)
 		}
 	}
 

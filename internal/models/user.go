@@ -7,14 +7,20 @@ import (
 )
 
 type User struct {
-	UserID    uuid.UUID  `json:"user_id"`
-	Email     string     `json:"email"`
-	Password  string     `json:"-"`
-	RoleID    *uuid.UUID `json:"role_id,omitempty"`
-	Role      *Role      `json:"role,omitempty"`
-	IsActive  bool       `json:"is_active"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	UserID               uuid.UUID  `json:"user_id"`
+	Email                string     `json:"email"`
+	Password             string     `json:"-"`
+	RoleID               *uuid.UUID `json:"role_id,omitempty"`
+	Role                 *Role      `json:"role,omitempty"`
+	IsActive             bool       `json:"is_active"`
+	CreatedAt            time.Time  `json:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at"`
+	ChangePassword       bool       `json:"change_password"`
+	PasswordChangedAt    *time.Time `json:"password_changed_at,omitempty"`
+	PasswordExpiresAt    *time.Time `json:"password_expires_at,omitempty"`
+	FailedLoginAttempts  int        `json:"-"` // Never expose in JSON
+	IsLocked             bool       `json:"is_locked"`
+	LockedUntil          *time.Time `json:"locked_until,omitempty"`
 }
 
 // HasPermission checks role-based access using HR role names.

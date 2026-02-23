@@ -10,6 +10,7 @@ import (
 	"hr-system/internal/handlers"
 	"hr-system/internal/jobs"
 	"hr-system/internal/middleware"
+	"hr-system/internal/repositories"
 	"hr-system/internal/repository"
 	"hr-system/internal/routes"
 	"hr-system/internal/services"
@@ -51,6 +52,10 @@ func main() {
 	taskRepo := repository.NewAssignedTaskRepository()
 	historyRepo := repository.NewWorkflowHistoryRepository()
 
+	// Password Policy Repositories (from repositories package)
+	passwordPolicyRepo := repositories.NewPasswordPolicyRepository()
+	passwordHistoryRepo := repositories.NewPasswordHistoryRepository()
+
 	// Services — Phase 1
 	roleService := services.NewRoleService(roleRepo)
 	userService := services.NewUserService(userRepo, roleRepo)
@@ -63,6 +68,13 @@ func main() {
 	// Services — Phase 2 (create some services early for workflow dependencies)
 	ltService := services.NewLeaveTypeService(ltRepo)
 	lbService := services.NewLeaveBalanceService(lbRepo, ltRepo, empRepo)
+
+	// Password Policy Service
+	passwordPolicyService := services.NewPasswordPolicyService(passwordPolicyRepo, passwordHistoryRepo)
+	log.Println("Password policy service initialized")
+
+	// Set password policy service on user service
+	userService.SetPasswordPolicyService(passwordPolicyService)
 
 	// Email Service
 	emailService := email.NewEmailService(&cfg.Email)
@@ -122,6 +134,9 @@ func main() {
 	// Workflow Admin Handler
 	workflowAdminHandler := handlers.NewWorkflowAdminHandler(workflowRepo)
 
+	// Password Policy Handler
+	passwordPolicyHandler := handlers.NewPasswordPolicyHandler(passwordPolicyService, userService)
+
 	// Background jobs
 	jobs.NewMonthlyLeaveAccrualJob(empRepo, lbRepo, ltRepo).Start()
 	log.Println("Monthly leave accrual job scheduled")
@@ -134,6 +149,7 @@ func main() {
 		ltHandler, lbHandler, lrHandler, attHandler, holidayHandler, dashboardHandler,
 		workflowHandler, workflowAdminHandler,
 	)
+	routes.RegisterPasswordPolicyRoutes(passwordPolicyHandler)
 
 	// Apply CORS middleware globally to the default mux
 	handler := middleware.CORS(http.DefaultServeMux)

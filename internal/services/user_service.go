@@ -12,12 +12,18 @@ import (
 )
 
 type UserService struct {
-	repo     *repository.UserRepository
-	roleRepo *repository.RoleRepository
+	repo                 *repository.UserRepository
+	roleRepo             *repository.RoleRepository
+	passwordPolicyService *PasswordPolicyService
 }
 
 func NewUserService(repo *repository.UserRepository, roleRepo *repository.RoleRepository) *UserService {
 	return &UserService{repo: repo, roleRepo: roleRepo}
+}
+
+// SetPasswordPolicyService sets the password policy service (called after initialization)
+func (s *UserService) SetPasswordPolicyService(policyService *PasswordPolicyService) {
+	s.passwordPolicyService = policyService
 }
 
 func (s *UserService) Register(user *models.User) error {
@@ -27,6 +33,13 @@ func (s *UserService) Register(user *models.User) error {
 	}
 	if exists {
 		return errors.New("email already registered")
+	}
+
+	// Validate password against policy if available
+	if s.passwordPolicyService != nil {
+		if err := s.passwordPolicyService.ValidateNewPassword(uuid.Nil, user.Password, ""); err != nil {
+			return err
+		}
 	}
 
 	hashed, err := utils.HashPassword(user.Password)
@@ -44,7 +57,24 @@ func (s *UserService) Register(user *models.User) error {
 	}
 
 	user.IsActive = true
-	return s.repo.Create(user)
+	now := time.Now()
+	user.PasswordChangedAt = &now
+
+	// Set password expiry if policy requires it
+	if s.passwordPolicyService != nil {
+		user.PasswordExpiresAt = s.passwordPolicyService.CalculatePasswordExpiry()
+	}
+
+	if err := s.repo.Create(user); err != nil {
+		return err
+	}
+
+	// Record password in history
+	if s.passwordPolicyService != nil {
+		_ = s.passwordPolicyService.RecordPasswordChange(user.UserID, hashed)
+	}
+
+	return nil
 }
 
 func (s *UserService) Login(email, password string) (map[string]interface{}, error) {
@@ -52,11 +82,62 @@ func (s *UserService) Login(email, password string) (map[string]interface{}, err
 	if err != nil {
 		return nil, errors.New("invalid email or password")
 	}
+
+	// Check if account is active
 	if !user.IsActive {
 		return nil, errors.New("account is inactive")
 	}
+
+	// Check account lockout status
+	if s.passwordPolicyService != nil {
+		locked, reason := s.passwordPolicyService.CheckAccountLockout(user)
+		if locked {
+			return nil, errors.New(reason)
+		}
+	}
+
+	// Verify password
 	if err := utils.ComparePasswords(user.Password, password); err != nil {
+		// Failed login attempt - increment counter
+		if s.passwordPolicyService != nil {
+			user.FailedLoginAttempts++
+
+			// Check if account should be locked
+			if s.passwordPolicyService.ShouldLockAccount(user.FailedLoginAttempts) {
+				lockoutTime := s.passwordPolicyService.CalculateLockoutTime()
+				user.LockedUntil = &lockoutTime
+			}
+
+			// Update user with failed attempt info
+			_ = s.repo.Update(user)
+		}
 		return nil, errors.New("invalid email or password")
+	}
+
+	// Successful login - reset failed attempts and unlock if temporarily locked
+	if s.passwordPolicyService != nil {
+		user.FailedLoginAttempts = 0
+		user.LockedUntil = nil
+		_ = s.repo.Update(user)
+	}
+
+	// Check password expiry
+	var passwordExpired bool
+	var passwordExpiringSoon bool
+	var daysUntilExpiry int
+	if s.passwordPolicyService != nil {
+		passwordExpired, passwordExpiringSoon, daysUntilExpiry = s.passwordPolicyService.CheckPasswordExpiry(user)
+		if passwordExpired {
+			return nil, errors.New("password has expired, please change your password")
+		}
+	}
+
+	// Generate token with appropriate expiry
+	var tokenExpiry time.Duration
+	if s.passwordPolicyService != nil {
+		tokenExpiry = time.Duration(s.passwordPolicyService.GetSessionTimeout()) * time.Second
+	} else {
+		tokenExpiry = 24 * time.Hour // Default 24 hours
 	}
 
 	token, err := utils.GenerateToken(user.Email, user.UserID)
@@ -64,16 +145,27 @@ func (s *UserService) Login(email, password string) (map[string]interface{}, err
 		return nil, err
 	}
 
-	return map[string]interface{}{
+	response := map[string]interface{}{
 		"token":      token,
-		"expires_at": time.Now().Add(24 * time.Hour),
+		"expires_at": time.Now().Add(tokenExpiry),
 		"user": map[string]interface{}{
-			"user_id":  user.UserID,
-			"email":    user.Email,
-			"role":     user.Role,
-			"is_active": user.IsActive,
+			"user_id":         user.UserID,
+			"email":           user.Email,
+			"role":            user.Role,
+			"is_active":       user.IsActive,
+			"change_password": user.ChangePassword,
 		},
-	}, nil
+	}
+
+	// Add password expiry warnings if applicable
+	if passwordExpiringSoon {
+		response["password_warning"] = map[string]interface{}{
+			"message":           "Your password is expiring soon",
+			"days_until_expiry": daysUntilExpiry,
+		}
+	}
+
+	return response, nil
 }
 
 func (s *UserService) GetAllUsers() ([]models.User, error) {
@@ -121,6 +213,100 @@ func (s *UserService) DeactivateUser(id uuid.UUID) error {
 	return s.repo.Update(user)
 }
 
+// ChangePassword allows a user to change their password
+func (s *UserService) ChangePassword(userID uuid.UUID, oldPassword, newPassword string) error {
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	// Verify old password
+	if err := utils.ComparePasswords(user.Password, oldPassword); err != nil {
+		return errors.New("current password is incorrect")
+	}
+
+	// Validate new password against policy
+	if s.passwordPolicyService != nil {
+		if err := s.passwordPolicyService.ValidateNewPassword(userID, newPassword, user.Password); err != nil {
+			return err
+		}
+	}
+
+	// Hash new password
+	hashed, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	// Update user
+	user.Password = hashed
+	now := time.Now()
+	user.PasswordChangedAt = &now
+	user.ChangePassword = false // Clear force change flag
+
+	// Set new expiry
+	if s.passwordPolicyService != nil {
+		user.PasswordExpiresAt = s.passwordPolicyService.CalculatePasswordExpiry()
+	}
+
+	if err := s.repo.Update(user); err != nil {
+		return err
+	}
+
+	// Record in password history
+	if s.passwordPolicyService != nil {
+		_ = s.passwordPolicyService.RecordPasswordChange(userID, hashed)
+	}
+
+	return nil
+}
+
+// ResetPassword allows admin to reset a user's password
+func (s *UserService) ResetPassword(userID uuid.UUID, newPassword string) error {
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return errors.New("user not found")
+	}
+
+	// Validate new password against policy
+	if s.passwordPolicyService != nil {
+		if err := s.passwordPolicyService.ValidateNewPassword(userID, newPassword, ""); err != nil {
+			return err
+		}
+	}
+
+	// Hash new password
+	hashed, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	// Update user - force password change on next login
+	user.Password = hashed
+	now := time.Now()
+	user.PasswordChangedAt = &now
+	user.ChangePassword = true // Force change on next login
+	user.FailedLoginAttempts = 0
+	user.IsLocked = false
+	user.LockedUntil = nil
+
+	// Set new expiry
+	if s.passwordPolicyService != nil {
+		user.PasswordExpiresAt = s.passwordPolicyService.CalculatePasswordExpiry()
+	}
+
+	if err := s.repo.Update(user); err != nil {
+		return err
+	}
+
+	// Record in password history
+	if s.passwordPolicyService != nil {
+		_ = s.passwordPolicyService.RecordPasswordChange(userID, hashed)
+	}
+
+	return nil
+}
+
 func (s *UserService) SeedSuperAdmin(email, password string) error {
 	exists, err := s.repo.EmailExists(email)
 	if err != nil {
@@ -140,11 +326,28 @@ func (s *UserService) SeedSuperAdmin(email, password string) error {
 		return err
 	}
 
+	now := time.Now()
 	user := &models.User{
-		Email:    email,
-		Password: hashed,
-		RoleID:   &role.RoleID,
-		IsActive: true,
+		Email:             email,
+		Password:          hashed,
+		RoleID:            &role.RoleID,
+		IsActive:          true,
+		PasswordChangedAt: &now,
 	}
-	return s.repo.Create(user)
+
+	// Set password expiry if policy requires it
+	if s.passwordPolicyService != nil {
+		user.PasswordExpiresAt = s.passwordPolicyService.CalculatePasswordExpiry()
+	}
+
+	if err := s.repo.Create(user); err != nil {
+		return err
+	}
+
+	// Record password in history
+	if s.passwordPolicyService != nil {
+		_ = s.passwordPolicyService.RecordPasswordChange(user.UserID, hashed)
+	}
+
+	return nil
 }
