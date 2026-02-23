@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"encoding/json"
 
 	"hr-system/internal/database"
 	"hr-system/internal/models"
@@ -47,13 +48,17 @@ func (r *AssignedTaskRepository) Create(task *models.AssignedTask) error {
 // GetByID retrieves a task by ID
 func (r *AssignedTaskRepository) GetByID(id string) (*models.AssignedTask, error) {
 	query := `
-		SELECT id, instance_id, step_id, step_name, assigned_to, assigned_by,
-		       status, due_date, completed_at, created_at, updated_at
-		FROM assigned_tasks
-		WHERE id = $1
+		SELECT at.id, at.instance_id, at.step_id, at.step_name, at.assigned_to, at.assigned_by,
+		       at.status, at.due_date, at.completed_at, at.created_at, at.updated_at,
+		       wi.task_details
+		FROM assigned_tasks at
+		LEFT JOIN workflow_instances wi ON at.instance_id = wi.id
+		WHERE at.id = $1
 	`
 
 	var task models.AssignedTask
+	var taskDetailsJSON []byte
+
 	err := r.db.QueryRow(query, id).Scan(
 		&task.ID,
 		&task.InstanceID,
@@ -66,10 +71,19 @@ func (r *AssignedTaskRepository) GetByID(id string) (*models.AssignedTask, error
 		&task.CompletedAt,
 		&task.CreatedAt,
 		&task.UpdatedAt,
+		&taskDetailsJSON,
 	)
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Parse task_details JSON if present
+	if len(taskDetailsJSON) > 0 {
+		var details models.TaskDetails
+		if err := json.Unmarshal(taskDetailsJSON, &details); err == nil {
+			task.TaskDetails = &details
+		}
 	}
 
 	return &task, nil
@@ -82,20 +96,24 @@ func (r *AssignedTaskRepository) GetByAssignee(userID string, status ...string) 
 
 	if len(status) > 0 {
 		query = `
-			SELECT id, instance_id, step_id, step_name, assigned_to, assigned_by,
-			       status, due_date, completed_at, created_at, updated_at
-			FROM assigned_tasks
-			WHERE assigned_to = $1 AND status = $2
-			ORDER BY created_at DESC
+			SELECT at.id, at.instance_id, at.step_id, at.step_name, at.assigned_to, at.assigned_by,
+			       at.status, at.due_date, at.completed_at, at.created_at, at.updated_at,
+			       wi.task_details
+			FROM assigned_tasks at
+			LEFT JOIN workflow_instances wi ON at.instance_id = wi.id
+			WHERE at.assigned_to = $1 AND at.status = $2
+			ORDER BY at.created_at DESC
 		`
 		args = []interface{}{userID, status[0]}
 	} else {
 		query = `
-			SELECT id, instance_id, step_id, step_name, assigned_to, assigned_by,
-			       status, due_date, completed_at, created_at, updated_at
-			FROM assigned_tasks
-			WHERE assigned_to = $1
-			ORDER BY created_at DESC
+			SELECT at.id, at.instance_id, at.step_id, at.step_name, at.assigned_to, at.assigned_by,
+			       at.status, at.due_date, at.completed_at, at.created_at, at.updated_at,
+			       wi.task_details
+			FROM assigned_tasks at
+			LEFT JOIN workflow_instances wi ON at.instance_id = wi.id
+			WHERE at.assigned_to = $1
+			ORDER BY at.created_at DESC
 		`
 		args = []interface{}{userID}
 	}
@@ -111,11 +129,13 @@ func (r *AssignedTaskRepository) GetPendingByAssignee(userID string) ([]models.A
 // GetByInstance retrieves all tasks for a workflow instance
 func (r *AssignedTaskRepository) GetByInstance(instanceID string) ([]models.AssignedTask, error) {
 	query := `
-		SELECT id, instance_id, step_id, step_name, assigned_to, assigned_by,
-		       status, due_date, completed_at, created_at, updated_at
-		FROM assigned_tasks
-		WHERE instance_id = $1
-		ORDER BY created_at
+		SELECT at.id, at.instance_id, at.step_id, at.step_name, at.assigned_to, at.assigned_by,
+		       at.status, at.due_date, at.completed_at, at.created_at, at.updated_at,
+		       wi.task_details
+		FROM assigned_tasks at
+		LEFT JOIN workflow_instances wi ON at.instance_id = wi.id
+		WHERE at.instance_id = $1
+		ORDER BY at.created_at
 	`
 
 	return r.queryTasks(query, instanceID)
@@ -124,15 +144,19 @@ func (r *AssignedTaskRepository) GetByInstance(instanceID string) ([]models.Assi
 // GetActiveTaskForInstance retrieves the current active task for an instance
 func (r *AssignedTaskRepository) GetActiveTaskForInstance(instanceID string) (*models.AssignedTask, error) {
 	query := `
-		SELECT id, instance_id, step_id, step_name, assigned_to, assigned_by,
-		       status, due_date, completed_at, created_at, updated_at
-		FROM assigned_tasks
-		WHERE instance_id = $1 AND status IN ('pending', 'in_progress')
-		ORDER BY created_at DESC
+		SELECT at.id, at.instance_id, at.step_id, at.step_name, at.assigned_to, at.assigned_by,
+		       at.status, at.due_date, at.completed_at, at.created_at, at.updated_at,
+		       wi.task_details
+		FROM assigned_tasks at
+		LEFT JOIN workflow_instances wi ON at.instance_id = wi.id
+		WHERE at.instance_id = $1 AND at.status IN ('pending', 'in_progress')
+		ORDER BY at.created_at DESC
 		LIMIT 1
 	`
 
 	var task models.AssignedTask
+	var taskDetailsJSON []byte
+
 	err := r.db.QueryRow(query, instanceID).Scan(
 		&task.ID,
 		&task.InstanceID,
@@ -145,10 +169,19 @@ func (r *AssignedTaskRepository) GetActiveTaskForInstance(instanceID string) (*m
 		&task.CompletedAt,
 		&task.CreatedAt,
 		&task.UpdatedAt,
+		&taskDetailsJSON,
 	)
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Parse task_details JSON if present
+	if len(taskDetailsJSON) > 0 {
+		var details models.TaskDetails
+		if err := json.Unmarshal(taskDetailsJSON, &details); err == nil {
+			task.TaskDetails = &details
+		}
 	}
 
 	return &task, nil
@@ -261,6 +294,8 @@ func (r *AssignedTaskRepository) queryTasks(query string, args ...interface{}) (
 	var tasks []models.AssignedTask
 	for rows.Next() {
 		var task models.AssignedTask
+		var taskDetailsJSON []byte
+
 		err := rows.Scan(
 			&task.ID,
 			&task.InstanceID,
@@ -273,10 +308,20 @@ func (r *AssignedTaskRepository) queryTasks(query string, args ...interface{}) (
 			&task.CompletedAt,
 			&task.CreatedAt,
 			&task.UpdatedAt,
+			&taskDetailsJSON,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		// Parse task_details JSON if present
+		if len(taskDetailsJSON) > 0 {
+			var details models.TaskDetails
+			if err := json.Unmarshal(taskDetailsJSON, &details); err == nil {
+				task.TaskDetails = &details
+			}
+		}
+
 		tasks = append(tasks, task)
 	}
 

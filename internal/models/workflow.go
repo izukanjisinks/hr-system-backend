@@ -169,17 +169,18 @@ type WorkflowInstance struct {
 // AssignedTask represents an action item assigned to a specific user for a workflow instance
 // Multiple tasks can exist for the same instance (e.g., parallel approvals)
 type AssignedTask struct {
-	ID         string     `json:"id"`
-	InstanceID string     `json:"instance_id"` // References WorkflowInstance
-	StepID     string     `json:"step_id"`     // Which step is this task for?
-	StepName   string     `json:"step_name"`   // Denormalized for easy display
-	AssignedTo string     `json:"assigned_to"` // User ID who needs to act
-	AssignedBy string     `json:"assigned_by"` // User ID who assigned this task
-	Status     string     `json:"status"`      // "pending", "in_progress", "completed", "skipped"
-	DueDate    *time.Time `json:"due_date,omitempty"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	ID          string       `json:"id"`
+	InstanceID  string       `json:"instance_id"` // References WorkflowInstance
+	StepID      string       `json:"step_id"`     // Which step is this task for?
+	StepName    string       `json:"step_name"`   // Denormalized for easy display
+	AssignedTo  string       `json:"assigned_to"` // User ID who needs to act
+	AssignedBy  string       `json:"assigned_by"` // User ID who assigned this task
+	Status      string       `json:"status"`      // "pending", "in_progress", "completed", "skipped"
+	DueDate     *time.Time   `json:"due_date,omitempty"`
+	CompletedAt *time.Time   `json:"completed_at,omitempty"`
+	TaskDetails *TaskDetails `json:"task_details,omitempty"` // Details from the workflow instance
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
 }
 
 // TaskDetails contains the context and data for a workflow instance
