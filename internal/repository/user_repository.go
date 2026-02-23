@@ -136,7 +136,7 @@ func (r *UserRepository) GetUserWithFewestTasksByRole(roleName string) (*models.
 		       COALESCE(COUNT(at.id), 0) as task_count
 		FROM users u
 		INNER JOIN roles r ON u.role_id = r.role_id
-		LEFT JOIN assigned_tasks at ON u.user_id::text = at.assigned_to AND at.status = 'pending'
+		LEFT JOIN assigned_tasks at ON at.assigned_to = u.user_id AND at.status = 'pending'
 		WHERE r.name = $1 AND u.is_active = true
 		GROUP BY u.user_id, u.email, u.password, u.role_id, u.is_active, u.created_at, u.updated_at,
 		         r.role_id, r.name, r.description

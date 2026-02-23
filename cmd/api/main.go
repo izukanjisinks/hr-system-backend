@@ -59,12 +59,15 @@ func main() {
 	docService := services.NewEmployeeDocumentService(docRepo, empRepo)
 	ecService := services.NewEmergencyContactService(ecRepo, empRepo)
 
-	// Workflow Service (create before leave request service for dependency injection)
-	workflowService := services.NewWorkflowService(workflowRepo, instanceRepo, taskRepo, historyRepo, userRepo, empRepo)
-
-	// Services — Phase 2
+	// Services — Phase 2 (create some services early for workflow dependencies)
 	ltService := services.NewLeaveTypeService(ltRepo)
 	lbService := services.NewLeaveBalanceService(lbRepo, ltRepo, empRepo)
+
+	// Workflow Service (create after leave balance service for dependency injection)
+	// Note: LeaveRequestRepo and LeaveBalanceService are passed to allow workflow to update leave request status
+	workflowService := services.NewWorkflowService(workflowRepo, instanceRepo, taskRepo, historyRepo, userRepo, empRepo, lrRepo, lbService)
+
+	// Services — Phase 2 (continued)
 	lrService := services.NewLeaveRequestService(lrRepo, lbService, ltRepo, holidayRepo, empRepo, workflowService)
 	holidayService := services.NewHolidayService(holidayRepo)
 	attService := services.NewAttendanceService(attRepo, holidayRepo, empRepo)

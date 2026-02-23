@@ -31,6 +31,14 @@ func (r *WorkflowHistoryRepository) Create(history *models.WorkflowHistory) erro
 
 	history.ID = uuid.New().String()
 
+	// Handle metadata - if empty, insert NULL instead of empty string (which is invalid JSON)
+	var metadata interface{}
+	if history.Metadata != "" {
+		metadata = history.Metadata
+	} else {
+		metadata = nil
+	}
+
 	return r.db.QueryRow(
 		query,
 		history.ID,
@@ -41,7 +49,7 @@ func (r *WorkflowHistoryRepository) Create(history *models.WorkflowHistory) erro
 		history.PerformedBy,
 		history.PerformedByName,
 		history.Comments,
-		history.Metadata,
+		metadata,
 	).Scan(&history.Timestamp)
 }
 

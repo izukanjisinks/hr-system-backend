@@ -13,12 +13,14 @@ import (
 )
 
 type WorkflowService struct {
-	workflowRepo  *repository.WorkflowRepository
-	instanceRepo  *repository.WorkflowInstanceRepository
-	taskRepo      *repository.AssignedTaskRepository
-	historyRepo   *repository.WorkflowHistoryRepository
-	userRepo      *repository.UserRepository
-	employeeRepo  *repository.EmployeeRepository
+	workflowRepo       *repository.WorkflowRepository
+	instanceRepo       *repository.WorkflowInstanceRepository
+	taskRepo           *repository.AssignedTaskRepository
+	historyRepo        *repository.WorkflowHistoryRepository
+	userRepo           *repository.UserRepository
+	employeeRepo       *repository.EmployeeRepository
+	leaveRequestRepo   *repository.LeaveRequestRepository
+	leaveBalanceService *LeaveBalanceService
 }
 
 func NewWorkflowService(
@@ -28,14 +30,18 @@ func NewWorkflowService(
 	historyRepo *repository.WorkflowHistoryRepository,
 	userRepo *repository.UserRepository,
 	employeeRepo *repository.EmployeeRepository,
+	leaveRequestRepo *repository.LeaveRequestRepository,
+	leaveBalanceService *LeaveBalanceService,
 ) *WorkflowService {
 	return &WorkflowService{
-		workflowRepo:  workflowRepo,
-		instanceRepo:  instanceRepo,
-		taskRepo:      taskRepo,
-		historyRepo:   historyRepo,
-		userRepo:      userRepo,
-		employeeRepo:  employeeRepo,
+		workflowRepo:        workflowRepo,
+		instanceRepo:        instanceRepo,
+		taskRepo:            taskRepo,
+		historyRepo:         historyRepo,
+		userRepo:            userRepo,
+		employeeRepo:        employeeRepo,
+		leaveRequestRepo:    leaveRequestRepo,
+		leaveBalanceService: leaveBalanceService,
 	}
 }
 
@@ -156,24 +162,44 @@ func (s *WorkflowService) ProcessAction(
 		return err
 	}
 
-	// Get valid transition
-	transition, err := s.workflowRepo.GetTransitionByAction(currentStep.ID, action)
-	if err == sql.ErrNoRows {
-		return fmt.Errorf("action '%s' is not valid from current step", action)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to get transition: %w", err)
+	// Check if this is a rejection action
+	isRejection := action == "reject" || action == "rejected" || action == "deny"
+
+	// Check if we're performing an action FROM the final step (completing the workflow)
+	// Final steps don't need transitions - any action from a final step completes the workflow
+	isCompletingFinalStep := currentStep.Final && !isRejection
+
+	var nextStep *models.WorkflowStep
+
+	if isCompletingFinalStep {
+		// For final steps, we don't need a transition - the next step is the same step
+		// The workflow will be marked as completed below
+		nextStep = currentStep
+	} else {
+		// Get valid transition for non-final steps
+		transition, err := s.workflowRepo.GetTransitionByAction(currentStep.ID, action)
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("action '%s' is not valid from current step '%s'", action, currentStep.StepName)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get transition: %w", err)
+		}
+
+		// Get next step
+		nextStep, err = s.workflowRepo.GetStepByID(transition.ToStepID)
+		if err != nil {
+			return fmt.Errorf("next step not found: %w", err)
+		}
 	}
 
-	// Get next step
-	nextStep, err := s.workflowRepo.GetStepByID(transition.ToStepID)
-	if err != nil {
-		return fmt.Errorf("next step not found: %w", err)
-	}
-
-	// Update instance
+	// Determine the new status
+	// - If rejected: mark as "rejected"
+	// - If completing from final step: mark as "completed"
+	// - Otherwise: keep as "in_progress"
 	newStatus := "in_progress"
-	if nextStep.Final {
+	if isRejection {
+		newStatus = "rejected"
+	} else if isCompletingFinalStep {
 		newStatus = "completed"
 	}
 
@@ -189,8 +215,14 @@ func (s *WorkflowService) ProcessAction(
 		}
 	}
 
-	// Create new task if not final step
-	if !nextStep.Final {
+	// If rejected or completing final step, mark instance as completed and stop workflow
+	if isRejection || isCompletingFinalStep {
+		if err := s.instanceRepo.Complete(instanceID); err != nil {
+			return fmt.Errorf("failed to complete instance: %w", err)
+		}
+	} else {
+		// Create new task for the next step (including when moving TO final steps)
+		// The final step still needs someone assigned to perform the final action
 		assigneeID, err := s.determineAssignee(nextStep, instance.TaskDetails)
 		if err != nil {
 			return fmt.Errorf("failed to determine assignee: %w", err)
@@ -208,11 +240,6 @@ func (s *WorkflowService) ProcessAction(
 
 		if err := s.taskRepo.Create(newTask); err != nil {
 			return fmt.Errorf("failed to create new task: %w", err)
-		}
-	} else {
-		// Mark instance as completed
-		if err := s.instanceRepo.Complete(instanceID); err != nil {
-			return fmt.Errorf("failed to complete instance: %w", err)
 		}
 	}
 
@@ -240,6 +267,14 @@ func (s *WorkflowService) ProcessAction(
 
 	if err := s.historyRepo.Create(history); err != nil {
 		return fmt.Errorf("failed to create history: %w", err)
+	}
+
+	// Update the underlying task (e.g., leave request) status if workflow is completed
+	if isRejection || isCompletingFinalStep {
+		if err := s.updateUnderlyingTaskStatus(instance, isRejection, performerUUID); err != nil {
+			// Log error but don't fail the workflow - the workflow has already been completed
+			fmt.Printf("Warning: Failed to update underlying task status: %v\n", err)
+		}
 	}
 
 	return nil
@@ -308,4 +343,75 @@ func (s *WorkflowService) checkPermission(userID string, step *models.WorkflowSt
 	}
 
 	return fmt.Errorf("user %s does not have permission to perform this action", user.Email)
+}
+
+// Helper: Update the underlying task (e.g., leave request) status when workflow completes
+func (s *WorkflowService) updateUnderlyingTaskStatus(instance *models.WorkflowInstance, isRejection bool, reviewerID uuid.UUID) error {
+	// Get employee from reviewer's user_id
+	reviewer, err := s.employeeRepo.GetByUserID(reviewerID)
+	if err != nil {
+		return fmt.Errorf("failed to get reviewer employee: %w", err)
+	}
+
+	// Handle based on task type
+	switch instance.TaskDetails.TaskType {
+	case "leave_request":
+		// Parse the leave request ID from task details
+		leaveRequestID, err := uuid.Parse(instance.TaskDetails.TaskID)
+		if err != nil {
+			return fmt.Errorf("invalid leave request ID: %w", err)
+		}
+
+		// Update leave request status based on workflow outcome
+		if isRejection {
+			// Reject the leave request
+			// Note: We need a reference to LeaveRequestService
+			// For now, we'll update the database directly through a repository
+			// TODO: Consider refactoring to avoid circular dependencies
+			return s.updateLeaveRequestStatus(leaveRequestID, reviewer.ID, "rejected")
+		} else {
+			// Approve the leave request
+			return s.updateLeaveRequestStatus(leaveRequestID, reviewer.ID, "approved")
+		}
+
+	default:
+		// For other task types, do nothing for now
+		return nil
+	}
+}
+
+// Helper: Update leave request status directly
+func (s *WorkflowService) updateLeaveRequestStatus(leaveRequestID, reviewerEmployeeID uuid.UUID, status string) error {
+	// Get the leave request to access employee and leave type info
+	req, err := s.leaveRequestRepo.GetByID(leaveRequestID)
+	if err != nil {
+		return fmt.Errorf("failed to get leave request: %w", err)
+	}
+
+	year := req.StartDate.Year()
+
+	// Convert string status to LeaveRequestStatus type and update balances
+	var leaveStatus models.LeaveRequestStatus
+	switch status {
+	case "approved":
+		leaveStatus = models.LeaveStatusApproved
+		// Update the leave request status
+		if err := s.leaveRequestRepo.UpdateStatus(leaveRequestID, leaveStatus, &reviewerEmployeeID, ""); err != nil {
+			return err
+		}
+		// Update balance: move from pending to used
+		return s.leaveBalanceService.ApproveLeave(req.EmployeeID, req.LeaveTypeID, year, req.TotalDays)
+
+	case "rejected":
+		leaveStatus = models.LeaveStatusRejected
+		// Update the leave request status
+		if err := s.leaveRequestRepo.UpdateStatus(leaveRequestID, leaveStatus, &reviewerEmployeeID, ""); err != nil {
+			return err
+		}
+		// Update balance: decrement pending (return the days)
+		return s.leaveBalanceService.DecrementPending(req.EmployeeID, req.LeaveTypeID, year, req.TotalDays)
+
+	default:
+		return fmt.Errorf("invalid leave request status: %s", status)
+	}
 }
