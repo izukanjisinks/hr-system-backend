@@ -13,6 +13,7 @@ import (
 	"hr-system/internal/repository"
 	"hr-system/internal/routes"
 	"hr-system/internal/services"
+	"hr-system/internal/utils/email"
 )
 
 func main() {
@@ -63,9 +64,13 @@ func main() {
 	ltService := services.NewLeaveTypeService(ltRepo)
 	lbService := services.NewLeaveBalanceService(lbRepo, ltRepo, empRepo)
 
+	// Email Service
+	emailService := email.NewEmailService(&cfg.Email)
+	log.Println("Email service initialized")
+
 	// Workflow Service (create after leave balance service for dependency injection)
-	// Note: LeaveRequestRepo and LeaveBalanceService are passed to allow workflow to update leave request status
-	workflowService := services.NewWorkflowService(workflowRepo, instanceRepo, taskRepo, historyRepo, userRepo, empRepo, lrRepo, lbService)
+	// Note: LeaveRequestRepo, LeaveBalanceService, and EmailService are passed to enable full workflow functionality
+	workflowService := services.NewWorkflowService(workflowRepo, instanceRepo, taskRepo, historyRepo, userRepo, empRepo, lrRepo, lbService, emailService)
 
 	// Services — Phase 2 (continued)
 	lrService := services.NewLeaveRequestService(lrRepo, lbService, ltRepo, holidayRepo, empRepo, workflowService)

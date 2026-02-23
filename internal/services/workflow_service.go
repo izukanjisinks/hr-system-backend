@@ -10,17 +10,19 @@ import (
 
 	"hr-system/internal/models"
 	"hr-system/internal/repository"
+	"hr-system/internal/utils/email"
 )
 
 type WorkflowService struct {
-	workflowRepo       *repository.WorkflowRepository
-	instanceRepo       *repository.WorkflowInstanceRepository
-	taskRepo           *repository.AssignedTaskRepository
-	historyRepo        *repository.WorkflowHistoryRepository
-	userRepo           *repository.UserRepository
-	employeeRepo       *repository.EmployeeRepository
-	leaveRequestRepo   *repository.LeaveRequestRepository
+	workflowRepo        *repository.WorkflowRepository
+	instanceRepo        *repository.WorkflowInstanceRepository
+	taskRepo            *repository.AssignedTaskRepository
+	historyRepo         *repository.WorkflowHistoryRepository
+	userRepo            *repository.UserRepository
+	employeeRepo        *repository.EmployeeRepository
+	leaveRequestRepo    *repository.LeaveRequestRepository
 	leaveBalanceService *LeaveBalanceService
+	emailService        *email.EmailService
 }
 
 func NewWorkflowService(
@@ -32,6 +34,7 @@ func NewWorkflowService(
 	employeeRepo *repository.EmployeeRepository,
 	leaveRequestRepo *repository.LeaveRequestRepository,
 	leaveBalanceService *LeaveBalanceService,
+	emailService *email.EmailService,
 ) *WorkflowService {
 	return &WorkflowService{
 		workflowRepo:        workflowRepo,
@@ -42,6 +45,7 @@ func NewWorkflowService(
 		employeeRepo:        employeeRepo,
 		leaveRequestRepo:    leaveRequestRepo,
 		leaveBalanceService: leaveBalanceService,
+		emailService:        emailService,
 	}
 }
 
@@ -102,6 +106,13 @@ func (s *WorkflowService) InitiateWorkflow(
 
 	if err := s.taskRepo.Create(task); err != nil {
 		return nil, fmt.Errorf("failed to create task: %w", err)
+	}
+
+	// Send email notification to assignee
+	assigneeUUID, _ := uuid.Parse(assigneeID)
+	if assignee, err := s.userRepo.GetUserByID(assigneeUUID); err == nil {
+		task.TaskDetails = &taskDetails // Add task details for email
+		s.notifyTaskAssignment(task, assignee, instance)
 	}
 
 	// Get initiator name for history
@@ -241,6 +252,13 @@ func (s *WorkflowService) ProcessAction(
 		if err := s.taskRepo.Create(newTask); err != nil {
 			return fmt.Errorf("failed to create new task: %w", err)
 		}
+
+		// Send email notification to new assignee
+		assigneeUUID, _ := uuid.Parse(assigneeID)
+		if assignee, err := s.userRepo.GetUserByID(assigneeUUID); err == nil {
+			newTask.TaskDetails = &instance.TaskDetails // Add task details for email
+			s.notifyTaskAssignment(newTask, assignee, instance)
+		}
 	}
 
 	// Get performer name for history
@@ -274,6 +292,13 @@ func (s *WorkflowService) ProcessAction(
 		if err := s.updateUnderlyingTaskStatus(instance, isRejection, performerUUID); err != nil {
 			// Log error but don't fail the workflow - the workflow has already been completed
 			fmt.Printf("Warning: Failed to update underlying task status: %v\n", err)
+		}
+
+		// Send email notification for workflow outcome
+		if instance.TaskDetails.TaskType == "leave_request" {
+			leaveRequestID, _ := uuid.Parse(instance.TaskDetails.TaskID)
+			reviewerName := performer.FirstName + " " + performer.LastName
+			s.notifyLeaveRequestOutcome(leaveRequestID, !isRejection, reviewerName)
 		}
 	}
 
@@ -413,5 +438,127 @@ func (s *WorkflowService) updateLeaveRequestStatus(leaveRequestID, reviewerEmplo
 
 	default:
 		return fmt.Errorf("invalid leave request status: %s", status)
+	}
+}
+
+// Helper: Send email notification when task is assigned
+func (s *WorkflowService) notifyTaskAssignment(task *models.AssignedTask, assignee *models.User, instance *models.WorkflowInstance) {
+	if s.emailService == nil {
+		return // Email service not configured
+	}
+
+	// Get assignee employee details
+	assigneeEmployee, err := s.employeeRepo.GetByUserID(assignee.UserID)
+	if err != nil {
+		fmt.Printf("Warning: Failed to get assignee employee for email notification: %v\n", err)
+		return
+	}
+
+	// Build email based on task type
+	var subject string
+	var htmlBody string
+
+	if task.TaskDetails != nil && task.TaskDetails.TaskType == "leave_request" {
+		// For leave request workflow
+		subject = "New Leave Request Assigned for Review"
+
+		// Get leave request details
+		leaveReq, err := s.leaveRequestRepo.GetByID(uuid.MustParse(task.TaskDetails.TaskID))
+		if err != nil {
+			fmt.Printf("Warning: Failed to get leave request for email: %v\n", err)
+			return
+		}
+
+		// Get leave type name
+		var leaveTypeName string
+		if leaveReq.LeaveType != nil {
+			leaveTypeName = leaveReq.LeaveType.Name
+		}
+
+		htmlBody = email.LeaveRequestAssignedTemplate(
+			task.TaskDetails.SenderDetails.SenderName,
+			leaveTypeName,
+			leaveReq.TotalDays,
+			leaveReq.StartDate.Format("2006-01-02"),
+			leaveReq.EndDate.Format("2006-01-02"),
+		)
+	} else {
+		// Generic task assignment
+		subject = fmt.Sprintf("New Task Assigned: %s", task.StepName)
+		htmlBody = email.GenericTaskAssignedTemplate(
+			assigneeEmployee.FirstName,
+			task.StepName,
+			task.TaskDetails.TaskDescription,
+		)
+	}
+
+	// Send email
+	if err := s.emailService.SendEmail([]string{assignee.Email}, subject, htmlBody); err != nil {
+		fmt.Printf("Warning: Failed to send task assignment email: %v\n", err)
+	}
+}
+
+// Helper: Send email notification when leave request is approved/rejected
+func (s *WorkflowService) notifyLeaveRequestOutcome(leaveRequestID uuid.UUID, isApproved bool, reviewerName string) {
+	if s.emailService == nil {
+		return // Email service not configured
+	}
+
+	// Get leave request
+	leaveReq, err := s.leaveRequestRepo.GetByID(leaveRequestID)
+	if err != nil {
+		fmt.Printf("Warning: Failed to get leave request for outcome email: %v\n", err)
+		return
+	}
+
+	// Get employee
+	employee, err := s.employeeRepo.GetByID(leaveReq.EmployeeID)
+	if err != nil {
+		fmt.Printf("Warning: Failed to get employee for outcome email: %v\n", err)
+		return
+	}
+
+	// Get user email
+	user, err := s.userRepo.GetUserByID(*employee.UserID)
+	if err != nil {
+		fmt.Printf("Warning: Failed to get user for outcome email: %v\n", err)
+		return
+	}
+
+	// Get leave type name
+	var leaveTypeName string
+	if leaveReq.LeaveType != nil {
+		leaveTypeName = leaveReq.LeaveType.Name
+	}
+
+	var subject string
+	var htmlBody string
+
+	if isApproved {
+		subject = "Leave Request Approved"
+		htmlBody = email.LeaveRequestApprovedTemplate(
+			employee.FirstName,
+			leaveTypeName,
+			leaveReq.TotalDays,
+			leaveReq.StartDate.Format("2006-01-02"),
+			leaveReq.EndDate.Format("2006-01-02"),
+			reviewerName,
+		)
+	} else {
+		subject = "Leave Request Not Approved"
+		htmlBody = email.LeaveRequestRejectedTemplate(
+			employee.FirstName,
+			leaveTypeName,
+			leaveReq.TotalDays,
+			leaveReq.StartDate.Format("2006-01-02"),
+			leaveReq.EndDate.Format("2006-01-02"),
+			reviewerName,
+			"", // No reason for now, can be added later
+		)
+	}
+
+	// Send email
+	if err := s.emailService.SendEmail([]string{user.Email}, subject, htmlBody); err != nil {
+		fmt.Printf("Warning: Failed to send leave request outcome email: %v\n", err)
 	}
 }

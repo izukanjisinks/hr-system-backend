@@ -15,6 +15,19 @@ type Config struct {
 	DBSSLMode  string
 	ServerPort string
 	JWTSecret  string
+	Email      EmailConfig
+}
+
+type EmailConfig struct {
+	Host       string
+	Port       string
+	Username   string
+	Password   string
+	FromEmail  string
+	FromName   string
+	UseTLS     bool
+	UseSSL     bool
+	AuthMethod string
 }
 
 func Load() *Config {
@@ -29,6 +42,17 @@ func Load() *Config {
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
 		ServerPort: getEnv("SERVER_PORT", "8080"),
 		JWTSecret:  getEnv("JWT_SECRET", "hr-system-secret-key"),
+		Email: EmailConfig{
+			Host:       getEnv("EMAIL_HOST", "smtp.gmail.com"),
+			Port:       getEnv("EMAIL_PORT", "587"),
+			Username:   getEnv("EMAIL_USERNAME", ""),
+			Password:   getEnv("EMAIL_PASSWORD", ""),
+			FromEmail:  getEnv("EMAIL_FROM", ""),
+			FromName:   getEnv("EMAIL_FROM_NAME", "HR System"),
+			UseTLS:     getEnv("EMAIL_USE_TLS", "true") == "true",
+			UseSSL:     getEnv("EMAIL_USE_SSL", "false") == "true",
+			AuthMethod: getEnv("EMAIL_AUTH_METHOD", "PLAIN"),
+		},
 	}
 }
 
