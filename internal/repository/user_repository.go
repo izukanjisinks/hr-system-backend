@@ -126,3 +126,50 @@ func (r *UserRepository) scanUser(row rowScanner) (*models.User, error) {
 
 	return &u, nil
 }
+
+// GetUserWithFewestTasksByRole finds a user with the specified role who has the fewest pending tasks
+// This enables load balancing when assigning workflow tasks
+func (r *UserRepository) GetUserWithFewestTasksByRole(roleName string) (*models.User, error) {
+	query := `
+		SELECT u.user_id, u.email, u.password, u.role_id, u.is_active, u.created_at, u.updated_at,
+		       r.role_id, r.name, r.description,
+		       COALESCE(COUNT(at.id), 0) as task_count
+		FROM users u
+		INNER JOIN roles r ON u.role_id = r.role_id
+		LEFT JOIN assigned_tasks at ON u.user_id::text = at.assigned_to AND at.status = 'pending'
+		WHERE r.name = $1 AND u.is_active = true
+		GROUP BY u.user_id, u.email, u.password, u.role_id, u.is_active, u.created_at, u.updated_at,
+		         r.role_id, r.name, r.description
+		ORDER BY task_count ASC, u.created_at ASC
+		LIMIT 1
+	`
+
+	var u models.User
+	var roleID sql.NullString
+	var rRoleID, rName, rDesc sql.NullString
+	var taskCount int
+
+	err := r.db.QueryRow(query, roleName).Scan(
+		&u.UserID, &u.Email, &u.Password, &roleID, &u.IsActive, &u.CreatedAt, &u.UpdatedAt,
+		&rRoleID, &rName, &rDesc, &taskCount,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if roleID.Valid {
+		parsed, _ := uuid.Parse(roleID.String)
+		u.RoleID = &parsed
+	}
+
+	if rRoleID.Valid {
+		roleUUID, _ := uuid.Parse(rRoleID.String)
+		u.Role = &models.Role{
+			RoleID:      roleUUID,
+			Name:        rName.String,
+			Description: rDesc.String,
+		}
+	}
+
+	return &u, nil
+}

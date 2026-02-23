@@ -59,15 +59,15 @@ func main() {
 	docService := services.NewEmployeeDocumentService(docRepo, empRepo)
 	ecService := services.NewEmergencyContactService(ecRepo, empRepo)
 
+	// Workflow Service (create before leave request service for dependency injection)
+	workflowService := services.NewWorkflowService(workflowRepo, instanceRepo, taskRepo, historyRepo, userRepo, empRepo)
+
 	// Services — Phase 2
 	ltService := services.NewLeaveTypeService(ltRepo)
 	lbService := services.NewLeaveBalanceService(lbRepo, ltRepo, empRepo)
-	lrService := services.NewLeaveRequestService(lrRepo, lbService, ltRepo, holidayRepo, empRepo)
+	lrService := services.NewLeaveRequestService(lrRepo, lbService, ltRepo, holidayRepo, empRepo, workflowService)
 	holidayService := services.NewHolidayService(holidayRepo)
 	attService := services.NewAttendanceService(attRepo, holidayRepo, empRepo)
-
-	// Workflow Service
-	workflowService := services.NewWorkflowService(workflowRepo, instanceRepo, taskRepo, historyRepo, userRepo, empRepo)
 
 	// Seed predefined roles
 	if err := roleService.InitializePredefinedRoles(); err != nil {

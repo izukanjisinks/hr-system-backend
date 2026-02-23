@@ -39,49 +39,33 @@ func NewWorkflowService(
 	}
 }
 
-// InitiateWorkflow starts a new workflow instance
+// InitiateWorkflow starts a new workflow instance using workflow type
 func (s *WorkflowService) InitiateWorkflow(
-	workflowName string,
+	workflowType models.WorkflowType,
 	taskDetails models.TaskDetails,
 	initiatorID string,
 	priority string,
 	dueDate *time.Time,
 ) (*models.WorkflowInstance, error) {
-	// Get workflow template
-	workflow, err := s.workflowRepo.GetByName(workflowName)
+	// Get workflow template by type
+	workflow, err := s.workflowRepo.GetByType(workflowType)
 	if err != nil {
-		return nil, fmt.Errorf("workflow not found: %w", err)
+		return nil, fmt.Errorf("workflow not found for type %s: %w", workflowType, err)
 	}
 
-	// Get initial step
-	initialStep, err := s.workflowRepo.GetInitialStep(workflow.ID)
+	// Get the first action step (the step after submission, e.g., "Pending Review")
+	// This also returns the initial step ID for history tracking
+	// This is optimized to do in one query instead of: get initial -> get transitions -> find submit -> get next step
+	firstActionStep, initialStepID, err := s.workflowRepo.GetFirstActionStep(workflow.ID)
 	if err != nil {
-		return nil, fmt.Errorf("initial step not found: %w", err)
+		return nil, fmt.Errorf("failed to get first action step: %w", err)
 	}
 
-	// Get transitions from initial step
-	transitions, err := s.workflowRepo.GetValidTransitions(initialStep.ID)
-	if err != nil {
-		return nil, fmt.Errorf("no valid transitions found: %w", err)
-	}
-
-	// Find the "submit" transition
-	var nextStepID string
-	for _, tr := range transitions {
-		if tr.ActionName == "submit" {
-			nextStepID = tr.ToStepID
-			break
-		}
-	}
-
-	if nextStepID == "" {
-		return nil, errors.New("no submit transition found from initial step")
-	}
-
-	// Create workflow instance
+	// Create workflow instance at the first action step (not the initial step)
+	// The instance starts at "Pending Review" or whatever the first action step is
 	instance := &models.WorkflowInstance{
 		WorkflowID:    workflow.ID,
-		CurrentStepID: nextStepID,
+		CurrentStepID: firstActionStep.ID,
 		Status:        "in_progress",
 		TaskDetails:   taskDetails,
 		CreatedBy:     initiatorID,
@@ -93,23 +77,17 @@ func (s *WorkflowService) InitiateWorkflow(
 		return nil, fmt.Errorf("failed to create instance: %w", err)
 	}
 
-	// Get the next step details
-	nextStep, err := s.workflowRepo.GetStepByID(nextStepID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get next step: %w", err)
-	}
-
-	// Determine who to assign the task to
-	assigneeID, err := s.determineAssignee(nextStep, taskDetails)
+	// Determine who to assign the task to (for the first action step)
+	assigneeID, err := s.determineAssignee(firstActionStep, taskDetails)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine assignee: %w", err)
 	}
 
-	// Create assigned task
+	// Create assigned task for the first action step
 	task := &models.AssignedTask{
 		InstanceID: instance.ID,
-		StepID:     nextStep.ID,
-		StepName:   nextStep.StepName,
+		StepID:     firstActionStep.ID,
+		StepName:   firstActionStep.StepName,
 		AssignedTo: assigneeID,
 		AssignedBy: initiatorID,
 		Status:     "pending",
@@ -131,15 +109,15 @@ func (s *WorkflowService) InitiateWorkflow(
 		return nil, fmt.Errorf("failed to get initiator: %w", err)
 	}
 
-	// Create history entry
+	// Create history entry (from initial step -> first action step via "submit")
 	history := &models.WorkflowHistory{
 		InstanceID:      instance.ID,
-		FromStepID:      &initialStep.ID,
-		ToStepID:        nextStepID,
+		FromStepID:      &initialStepID,
+		ToStepID:        firstActionStep.ID,
 		ActionTaken:     "submit",
 		PerformedBy:     initiatorID,
 		PerformedByName: initiator.FirstName + " " + initiator.LastName,
-		Comments:        fmt.Sprintf("Initiated %s workflow", workflowName),
+		Comments:        fmt.Sprintf("Initiated %s workflow", workflow.Name),
 	}
 
 	if err := s.historyRepo.Create(history); err != nil {
@@ -286,30 +264,22 @@ func (s *WorkflowService) GetInstanceByTaskID(taskID string) (*models.WorkflowIn
 }
 
 // Helper: Determine who to assign the task to based on step configuration
+// Uses intelligent load balancing - assigns to the user with the required role who has the fewest pending tasks
 func (s *WorkflowService) determineAssignee(step *models.WorkflowStep, taskDetails models.TaskDetails) (string, error) {
-	// For now, find the first user with one of the allowed roles
-	// In a production system, you might want more sophisticated logic
-	// (e.g., department-based assignment, round-robin, etc.)
-
 	if len(step.AllowedRoles) == 0 {
 		return "", errors.New("no allowed roles defined for step")
 	}
 
-	// Get a user with one of the allowed roles
-	// This is a simplified version - you may want to enhance this logic
-	for _, roleCode := range step.AllowedRoles {
-		// Try to find a user with this role
-		// For now, we'll return the first HR Manager or Department Head
-		// You should implement proper user selection logic here
-		if roleCode == "HR_MANAGER" || roleCode == "DEPARTMENT_HEAD" {
-			// This is a placeholder - implement proper user lookup
-			// For example, you could look up the employee's department head
-			// or the assigned HR manager from the task details
-			return taskDetails.SenderDetails.SenderID, nil // Temporary
+	// Try each allowed role and find the user with the fewest pending tasks
+	for _, roleName := range step.AllowedRoles {
+		user, err := s.userRepo.GetUserWithFewestTasksByRole(roleName)
+		if err == nil && user != nil {
+			// Found a user with this role - return their user_id as string
+			return user.UserID.String(), nil
 		}
 	}
 
-	return "", errors.New("no suitable assignee found for step")
+	return "", fmt.Errorf("no active user found with any of the allowed roles: %v", step.AllowedRoles)
 }
 
 // Helper: Check if user has permission to perform action on a step

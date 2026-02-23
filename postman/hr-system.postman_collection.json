@@ -769,12 +769,21 @@
       "name": "Workflows (Admin)",
       "item": [
         {
+          "name": "Get Available Workflow Types",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-types", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-types"] },
+            "description": "Requires SuperAdmin or HRManager role. Get all available workflow type constants (LEAVE_REQUEST, EMPLOYEE_ONBOARDING, etc.) that can be used when creating workflows."
+          }
+        },
+        {
           "name": "Get All Workflows",
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/admin/workflows", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflows"] },
-            "description": "Requires SuperAdmin or HRManager role. Get all active workflow templates."
+            "description": "Requires SuperAdmin or HRManager role. Get all active workflow templates with step_count and transition_count for each workflow."
           }
         },
         {
@@ -792,8 +801,36 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/admin/workflows", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflows"] },
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Equipment Request Approval\",\n  \"description\": \"Workflow for equipment procurement requests\"\n}" },
-            "description": "Requires SuperAdmin or HRManager role. Create new workflow template."
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Leave Request Approval\",\n  \"description\": \"Workflow for managing employee leave requests\",\n  \"workflow_type\": \"LEAVE_REQUEST\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Create new workflow template. workflow_type must be one of the constants from /workflow-types endpoint. Only one active workflow per type is allowed."
+          }
+        },
+        {
+          "name": "Update Workflow",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflows/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflows",":id"], "variable": [{ "key": "id", "value": "<workflow-uuid>" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Equipment Request Approval - Updated\",\n  \"description\": \"Updated workflow description\",\n  \"is_active\": true\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Update workflow template. Fields are optional - only provided fields will be updated."
+          }
+        },
+        {
+          "name": "Deactivate Workflow",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflows/:id/deactivate", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflows",":id","deactivate"], "variable": [{ "key": "id", "value": "<workflow-uuid>" }] },
+            "description": "Requires SuperAdmin or HRManager role. Deactivate workflow (soft delete - sets is_active to false)."
+          }
+        },
+        {
+          "name": "Delete Workflow",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflows/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflows",":id"], "variable": [{ "key": "id", "value": "<workflow-uuid>" }] },
+            "description": "Requires SuperAdmin or HRManager role. PERMANENTLY delete workflow (CASCADE deletes all steps and transitions)."
           }
         },
         {
@@ -834,6 +871,25 @@
           }
         },
         {
+          "name": "Update Workflow Step",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-steps/:step_id", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-steps",":step_id"], "variable": [{ "key": "step_id", "value": "<step-uuid>" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"step_name\": \"CFO Approval - Updated\",\n  \"step_order\": 4,\n  \"allowed_roles\": [\"cfo\"],\n  \"requires_all_approvers\": true,\n  \"min_approvals\": 1\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Update workflow step. Fields are optional - only provided fields will be updated."
+          }
+        },
+        {
+          "name": "Delete Workflow Step",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-steps/:step_id", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-steps",":step_id"], "variable": [{ "key": "step_id", "value": "<step-uuid>" }] },
+            "description": "Requires SuperAdmin or HRManager role. Permanently delete workflow step (CASCADE deletes related transitions)."
+          }
+        },
+        {
           "name": "Get Workflow Transitions",
           "request": {
             "method": "GET",
@@ -859,6 +915,25 @@
             "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-transitions", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-transitions"] },
             "body": { "mode": "raw", "raw": "{\n  \"workflow_id\": \"<workflow-uuid>\",\n  \"from_step_id\": \"<step-uuid>\",\n  \"to_step_id\": \"<step-uuid>\",\n  \"action_name\": \"approve\",\n  \"condition_type\": \"role_check\",\n  \"condition_value\": \"\"\n}" },
             "description": "Requires SuperAdmin or HRManager role. Create new transition between workflow steps."
+          }
+        },
+        {
+          "name": "Update Workflow Transition",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-transitions/:transition_id", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-transitions",":transition_id"], "variable": [{ "key": "transition_id", "value": "<transition-uuid>" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"action_name\": \"reject\",\n  \"condition_type\": \"role_and_level\",\n  \"condition_value\": \"{\\\"level\\\": \\\"senior\\\"}\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Update workflow transition. Fields are optional - only provided fields will be updated."
+          }
+        },
+        {
+          "name": "Delete Workflow Transition",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-transitions/:transition_id", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-transitions",":transition_id"], "variable": [{ "key": "transition_id", "value": "<transition-uuid>" }] },
+            "description": "Requires SuperAdmin or HRManager role. Permanently delete workflow transition."
           }
         }
       ]

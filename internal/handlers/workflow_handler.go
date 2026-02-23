@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"hr-system/internal/middleware"
 	"hr-system/internal/models"
 	"hr-system/internal/services"
 )
@@ -21,12 +22,16 @@ func NewWorkflowHandler(service *services.WorkflowService) *WorkflowHandler {
 
 // GetMyTasks retrieves all tasks assigned to the authenticated user
 func (h *WorkflowHandler) GetMyTasks(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(string)
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	// Get status filter from query params (optional)
 	status := r.URL.Query().Get("status") // "pending", "completed", etc.
 
-	tasks, err := h.service.GetMyTasks(userID, status)
+	tasks, err := h.service.GetMyTasks(userID.String(), status)
 	if err != nil {
 		http.Error(w, "Failed to retrieve tasks", http.StatusInternalServerError)
 		return
@@ -41,9 +46,13 @@ func (h *WorkflowHandler) GetMyTasks(w http.ResponseWriter, r *http.Request) {
 
 // GetMyPendingTasks retrieves only pending tasks for the authenticated user
 func (h *WorkflowHandler) GetMyPendingTasks(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(string)
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
-	tasks, err := h.service.GetMyTasks(userID, "pending")
+	tasks, err := h.service.GetMyTasks(userID.String(), "pending")
 	if err != nil {
 		http.Error(w, "Failed to retrieve pending tasks", http.StatusInternalServerError)
 		return
@@ -64,7 +73,11 @@ type ProcessActionRequest struct {
 
 // ProcessAction handles workflow actions (approve, reject, etc.)
 func (h *WorkflowHandler) ProcessAction(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(string)
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	// Get instance ID from path
 	instanceID := r.PathValue("id")
@@ -87,7 +100,7 @@ func (h *WorkflowHandler) ProcessAction(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Process the action
-	err := h.service.ProcessAction(instanceID, req.Action, userID, req.Comments)
+	err := h.service.ProcessAction(instanceID, req.Action, userID.String(), req.Comments)
 	if err != nil {
 		// Check for specific errors
 		if err.Error() == "workflow instance is already closed" {
@@ -135,15 +148,19 @@ func (h *WorkflowHandler) GetInstanceHistory(w http.ResponseWriter, r *http.Requ
 
 // InitiateWorkflowRequest represents the request to start a new workflow
 type InitiateWorkflowRequest struct {
-	WorkflowName string                `json:"workflow_name"`
-	TaskDetails  models.TaskDetails    `json:"task_details"`
-	Priority     string                `json:"priority"`      // "low", "medium", "high", "urgent"
-	DueDate      *time.Time            `json:"due_date"`      // Optional
+	WorkflowType models.WorkflowType `json:"workflow_type"` // e.g., "LEAVE_REQUEST", "EMPLOYEE_ONBOARDING"
+	TaskDetails  models.TaskDetails  `json:"task_details"`
+	Priority     string              `json:"priority"`  // "low", "medium", "high", "urgent"
+	DueDate      *time.Time          `json:"due_date"`  // Optional
 }
 
 // InitiateWorkflow starts a new workflow instance (used internally by other services)
 func (h *WorkflowHandler) InitiateWorkflow(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("user_id").(string)
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	var req InitiateWorkflowRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -152,8 +169,8 @@ func (h *WorkflowHandler) InitiateWorkflow(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Validate required fields
-	if req.WorkflowName == "" {
-		http.Error(w, "Workflow name is required", http.StatusBadRequest)
+	if req.WorkflowType == "" {
+		http.Error(w, "Workflow type is required", http.StatusBadRequest)
 		return
 	}
 	if req.TaskDetails.TaskID == "" || req.TaskDetails.TaskType == "" {
@@ -168,9 +185,9 @@ func (h *WorkflowHandler) InitiateWorkflow(w http.ResponseWriter, r *http.Reques
 
 	// Initiate workflow
 	instance, err := h.service.InitiateWorkflow(
-		req.WorkflowName,
+		req.WorkflowType,
 		req.TaskDetails,
-		userID,
+		userID.String(),
 		req.Priority,
 		req.DueDate,
 	)
@@ -214,10 +231,14 @@ func (h *WorkflowHandler) GetTaskDetails(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	userID := r.Context().Value("user_id").(string)
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	// Get all tasks for the user to find this one
-	tasks, err := h.service.GetMyTasks(userID, "")
+	tasks, err := h.service.GetMyTasks(userID.String(), "")
 	if err != nil {
 		http.Error(w, "Failed to retrieve task", http.StatusInternalServerError)
 		return

@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"hr-system/internal/interfaces"
@@ -12,11 +13,12 @@ import (
 )
 
 type LeaveRequestService struct {
-	repo           *repository.LeaveRequestRepository
-	balanceService *LeaveBalanceService
-	leaveTypeRepo  *repository.LeaveTypeRepository
-	holidayRepo    *repository.HolidayRepository
-	empRepo        *repository.EmployeeRepository
+	repo            *repository.LeaveRequestRepository
+	balanceService  *LeaveBalanceService
+	leaveTypeRepo   *repository.LeaveTypeRepository
+	holidayRepo     *repository.HolidayRepository
+	empRepo         *repository.EmployeeRepository
+	workflowService *WorkflowService
 }
 
 func NewLeaveRequestService(
@@ -25,13 +27,15 @@ func NewLeaveRequestService(
 	ltRepo *repository.LeaveTypeRepository,
 	holidayRepo *repository.HolidayRepository,
 	empRepo *repository.EmployeeRepository,
+	workflowSvc *WorkflowService,
 ) *LeaveRequestService {
 	return &LeaveRequestService{
-		repo:           repo,
-		balanceService: balanceSvc,
-		leaveTypeRepo:  ltRepo,
-		holidayRepo:    holidayRepo,
-		empRepo:        empRepo,
+		repo:            repo,
+		balanceService:  balanceSvc,
+		leaveTypeRepo:   ltRepo,
+		holidayRepo:     holidayRepo,
+		empRepo:         empRepo,
+		workflowService: workflowSvc,
 	}
 }
 
@@ -97,7 +101,71 @@ func (s *LeaveRequestService) Create(req *models.LeaveRequest) error {
 	if err := s.repo.Create(req); err != nil {
 		return err
 	}
-	return s.balanceService.IncrementPending(req.EmployeeID, req.LeaveTypeID, year, req.TotalDays)
+	if err := s.balanceService.IncrementPending(req.EmployeeID, req.LeaveTypeID, year, req.TotalDays); err != nil {
+		return err
+	}
+
+	// Trigger workflow for leave request approval
+	if s.workflowService != nil {
+		if err := s.initiateLeaveRequestWorkflow(req); err != nil {
+			// Log the error but don't fail the leave request creation
+			// The workflow can be manually triggered later if needed
+			fmt.Printf("Warning: Failed to initiate workflow for leave request %s: %v\n", req.ID, err)
+		}
+	}
+
+	return nil
+}
+
+// initiateLeaveRequestWorkflow creates a workflow instance for the leave request
+func (s *LeaveRequestService) initiateLeaveRequestWorkflow(req *models.LeaveRequest) error {
+	// Get employee details for the task
+	employee, err := s.empRepo.GetByID(req.EmployeeID)
+	if err != nil {
+		return fmt.Errorf("failed to get employee details: %w", err)
+	}
+
+	// Extract position and department names
+	positionName := ""
+	if employee.Position != nil {
+		positionName = employee.Position.Title
+	}
+
+	departmentName := ""
+	if employee.Department != nil {
+		departmentName = employee.Department.Name
+	}
+
+	// Create task details
+	taskDetails := models.TaskDetails{
+		TaskID:          req.ID.String(),
+		TaskType:        "leave_request",
+		TaskDescription: fmt.Sprintf("%s %s has requested %d days of leave from %s to %s",
+			employee.FirstName, employee.LastName,
+			req.TotalDays,
+			req.StartDate.Format("2006-01-02"),
+			req.EndDate.Format("2006-01-02")),
+		SenderDetails: models.SenderDetails{
+			SenderID:   employee.UserID.String(),
+			SenderName: fmt.Sprintf("%s %s", employee.FirstName, employee.LastName),
+			Position:   positionName,
+			Department: departmentName,
+		},
+	}
+
+	// Calculate due date (e.g., 3 days from now for approval)
+	dueDate := time.Now().Add(72 * time.Hour)
+
+	// Initiate the workflow using the LEAVE_REQUEST type constant
+	_, err = s.workflowService.InitiateWorkflow(
+		models.WorkflowTypeLeaveRequest,
+		taskDetails,
+		employee.UserID.String(),
+		"medium",
+		&dueDate,
+	)
+
+	return err
 }
 
 func (s *LeaveRequestService) GetByID(id uuid.UUID) (*models.LeaveRequest, error) {

@@ -2,15 +2,126 @@ package models
 
 import "time"
 
+// WorkflowType represents the type/purpose of a workflow
+type WorkflowType string
+
+// Workflow type constants - only one active workflow allowed per type
+const (
+	WorkflowTypeLeaveRequest       WorkflowType = "LEAVE_REQUEST"
+	WorkflowTypeEmployeeOnboarding WorkflowType = "EMPLOYEE_ONBOARDING"
+	WorkflowTypeEmployeeOffboarding WorkflowType = "EMPLOYEE_OFFBOARDING"
+	WorkflowTypePerformanceReview  WorkflowType = "PERFORMANCE_REVIEW"
+	WorkflowTypeExpenseClaim       WorkflowType = "EXPENSE_CLAIM"
+	WorkflowTypeTrainingRequest    WorkflowType = "TRAINING_REQUEST"
+	WorkflowTypeAssetRequest       WorkflowType = "ASSET_REQUEST"
+	WorkflowTypeGrievance          WorkflowType = "GRIEVANCE"
+	WorkflowTypePromotionRequest   WorkflowType = "PROMOTION_REQUEST"
+	WorkflowTypeTransferRequest    WorkflowType = "TRANSFER_REQUEST"
+)
+
+// GetAllWorkflowTypes returns all available workflow types
+func GetAllWorkflowTypes() []WorkflowType {
+	return []WorkflowType{
+		WorkflowTypeLeaveRequest,
+		WorkflowTypeEmployeeOnboarding,
+		WorkflowTypeEmployeeOffboarding,
+		WorkflowTypePerformanceReview,
+		WorkflowTypeExpenseClaim,
+		WorkflowTypeTrainingRequest,
+		WorkflowTypeAssetRequest,
+		WorkflowTypeGrievance,
+		WorkflowTypePromotionRequest,
+		WorkflowTypeTransferRequest,
+	}
+}
+
+// WorkflowTypeInfo provides metadata about a workflow type
+type WorkflowTypeInfo struct {
+	Type        WorkflowType `json:"type"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+}
+
+// GetWorkflowTypeInfo returns metadata for all workflow types
+func GetWorkflowTypeInfo() []WorkflowTypeInfo {
+	return []WorkflowTypeInfo{
+		{
+			Type:        WorkflowTypeLeaveRequest,
+			Name:        "Leave Request",
+			Description: "Workflow for managing employee leave requests and approvals",
+		},
+		{
+			Type:        WorkflowTypeEmployeeOnboarding,
+			Name:        "Employee Onboarding",
+			Description: "Workflow for onboarding new employees with tasks and approvals",
+		},
+		{
+			Type:        WorkflowTypeEmployeeOffboarding,
+			Name:        "Employee Offboarding",
+			Description: "Workflow for offboarding departing employees",
+		},
+		{
+			Type:        WorkflowTypePerformanceReview,
+			Name:        "Performance Review",
+			Description: "Workflow for conducting employee performance reviews",
+		},
+		{
+			Type:        WorkflowTypeExpenseClaim,
+			Name:        "Expense Claim",
+			Description: "Workflow for submitting and approving expense claims",
+		},
+		{
+			Type:        WorkflowTypeTrainingRequest,
+			Name:        "Training Request",
+			Description: "Workflow for requesting and approving training courses",
+		},
+		{
+			Type:        WorkflowTypeAssetRequest,
+			Name:        "Asset Request",
+			Description: "Workflow for requesting company assets (laptops, equipment, etc.)",
+		},
+		{
+			Type:        WorkflowTypeGrievance,
+			Name:        "Grievance",
+			Description: "Workflow for handling employee grievances and complaints",
+		},
+		{
+			Type:        WorkflowTypePromotionRequest,
+			Name:        "Promotion Request",
+			Description: "Workflow for managing employee promotion requests",
+		},
+		{
+			Type:        WorkflowTypeTransferRequest,
+			Name:        "Transfer Request",
+			Description: "Workflow for managing employee transfer requests between departments",
+		},
+	}
+}
+
 // Workflow represents a workflow template (the blueprint)
 type Workflow struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	IsActive    bool      `json:"is_active"`
-	CreatedBy   string    `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID           string        `json:"id"`
+	Name         string        `json:"name"`
+	Description  string        `json:"description"`
+	WorkflowType *WorkflowType `json:"workflow_type,omitempty"` // Unique identifier for workflow purpose
+	IsActive     bool          `json:"is_active"`
+	CreatedBy    string        `json:"created_by"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
+}
+
+// WorkflowWithCounts represents a workflow template with step and transition counts
+type WorkflowWithCounts struct {
+	ID              string        `json:"id"`
+	Name            string        `json:"name"`
+	Description     string        `json:"description"`
+	WorkflowType    *WorkflowType `json:"workflow_type,omitempty"`
+	IsActive        bool          `json:"is_active"`
+	CreatedBy       string        `json:"created_by"`
+	CreatedAt       time.Time     `json:"created_at"`
+	UpdatedAt       time.Time     `json:"updated_at"`
+	StepCount       int           `json:"step_count"`
+	TransitionCount int           `json:"transition_count"`
 }
 
 // WorkflowStep represents a step/stage in a workflow template
