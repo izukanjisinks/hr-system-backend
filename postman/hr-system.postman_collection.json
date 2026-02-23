@@ -766,6 +766,60 @@
     },
 
     {
+      "name": "Password Policy",
+      "item": [
+        {
+          "name": "Get Password Policy",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/password-policy", "host": ["{{baseUrl}}"], "path": ["api","v1","password-policy"] },
+            "description": "Get current password policy settings including complexity requirements, expiry days, lockout settings, etc."
+          }
+        },
+        {
+          "name": "Update Password Policy",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/password-policy", "host": ["{{baseUrl}}"], "path": ["api","v1","password-policy"] },
+            "body": { "mode": "raw", "raw": "{\n  \"min_length\": 10,\n  \"require_uppercase\": true,\n  \"require_lowercase\": true,\n  \"require_numbers\": true,\n  \"require_special_chars\": true,\n  \"max_failed_attempts\": 3,\n  \"lockout_duration_mins\": 30,\n  \"password_expiry_days\": 90,\n  \"otp_length\": 6,\n  \"otp_expiry_mins\": 5,\n  \"session_timeout_mins\": 30\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Update password policy settings. All fields are optional."
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/change-password", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","change-password"] },
+            "body": { "mode": "raw", "raw": "{\n  \"old_password\": \"CurrentPass@123\",\n  \"new_password\": \"NewPassword@456\"\n}" },
+            "description": "Change your own password. Validates against password policy and checks password history."
+          }
+        },
+        {
+          "name": "Reset User Password (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","reset-password"] },
+            "body": { "mode": "raw", "raw": "{\n  \"user_id\": \"<user-uuid>\",\n  \"new_password\": \"TempPassword@789\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Reset a user's password. User will be forced to change password on next login."
+          }
+        }
+      ]
+    },
+
+    {
       "name": "Workflows (Admin)",
       "item": [
         {
