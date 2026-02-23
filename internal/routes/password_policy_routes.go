@@ -10,7 +10,7 @@ import (
 func RegisterPasswordPolicyRoutes(handler *handlers.PasswordPolicyHandler) {
 	// Password policy management routes (authenticated)
 	http.HandleFunc("GET /api/v1/password-policy",
-		withAuth(handler.GetPasswordPolicy))
+		withAuthAndRole(handler.GetPasswordPolicy, models.RoleSuperAdmin, models.RoleHRManager))
 
 	http.HandleFunc("PUT /api/v1/password-policy",
 		withAuthAndRole(handler.UpdatePasswordPolicy, models.RoleSuperAdmin, models.RoleHRManager))
