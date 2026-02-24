@@ -179,6 +179,48 @@ func (r *EmployeeRepository) CountByDatePrefix(prefix string) (int, error) {
 	return count, err
 }
 
+// GetManagersByDepartment returns all employees who are managers in a specific department
+// An employee is considered a manager if:
+// 1. They are the department manager (departments.manager_id), OR
+// 2. They have direct reports in that department
+func (r *EmployeeRepository) GetManagersByDepartment(departmentID uuid.UUID) ([]models.Employee, error) {
+	query := fmt.Sprintf(`
+		SELECT DISTINCT %s
+		FROM employees e
+		WHERE e.deleted_at IS NULL
+		AND e.department_id = $1
+		AND (
+			-- Is the department manager
+			EXISTS (SELECT 1 FROM departments d WHERE d.id = $1 AND d.manager_id = e.id)
+			OR
+			-- Has direct reports in this department
+			EXISTS (
+				SELECT 1 FROM employees reports
+				WHERE reports.manager_id = e.id
+				AND reports.department_id = $1
+				AND reports.deleted_at IS NULL
+			)
+		)
+		ORDER BY e.last_name, e.first_name
+	`, employeeSelectCols)
+
+	rows, err := r.db.Query(query, departmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var managers []models.Employee
+	for rows.Next() {
+		emp, err := r.scanEmployee(rows)
+		if err != nil {
+			return nil, err
+		}
+		managers = append(managers, *emp)
+	}
+	return managers, rows.Err()
+}
+
 func (r *EmployeeRepository) EmailActiveExists(email string, excludeID *uuid.UUID) (bool, error) {
 	var count int
 	var err error

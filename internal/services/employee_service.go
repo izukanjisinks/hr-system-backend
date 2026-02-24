@@ -94,6 +94,10 @@ func (s *EmployeeService) GetDirectReports(managerID uuid.UUID) ([]models.Employ
 	return s.repo.GetDirectReports(managerID)
 }
 
+func (s *EmployeeService) GetManagersByDepartment(departmentID uuid.UUID) ([]models.Employee, error) {
+	return s.repo.GetManagersByDepartment(departmentID)
+}
+
 func (s *EmployeeService) GetOrgSubtree(rootID uuid.UUID) ([]*models.Employee, error) {
 	// BFS to collect org subtree
 	visited := map[uuid.UUID]bool{}

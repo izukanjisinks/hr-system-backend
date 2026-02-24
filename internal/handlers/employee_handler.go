@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"hr-system/internal/interfaces"
@@ -23,10 +24,17 @@ func NewEmployeeHandler(service *services.EmployeeService) *EmployeeHandler {
 func (h *EmployeeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var emp models.Employee
 	if err := utils.DecodeJson(r, &emp); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Invalid request body")
+		// Log the detailed error for debugging
+		fmt.Printf("ERROR: Failed to decode employee JSON: %v\n", err)
+		utils.RespondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err))
 		return
 	}
+
+	// Log the received employee data
+	fmt.Printf("DEBUG: Creating employee: %+v\n", emp)
+
 	if err := h.service.Create(&emp); err != nil {
+		fmt.Printf("ERROR: Failed to create employee in service: %v\n", err)
 		utils.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -143,4 +151,20 @@ func (h *EmployeeHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	// Find employee linked to this user
 	_ = userID
 	utils.RespondJSON(w, http.StatusOK, emps[0])
+}
+
+func (h *EmployeeHandler) GetManagersByDepartment(w http.ResponseWriter, r *http.Request) {
+	departmentID, err := uuid.Parse(r.PathValue("department_id"))
+	if err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Invalid department ID")
+		return
+	}
+
+	managers, err := h.service.GetManagersByDepartment(departmentID)
+	if err != nil {
+		utils.RespondError(w, http.StatusInternalServerError, "Failed to get managers")
+		return
+	}
+
+	utils.RespondJSON(w, http.StatusOK, managers)
 }

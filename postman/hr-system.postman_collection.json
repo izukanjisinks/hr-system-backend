@@ -268,6 +268,15 @@
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/hr/employees/:id/direct-reports", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","employees",":id","direct-reports"], "variable": [{ "key": "id", "value": "<manager-employee-uuid>" }] }
           }
+        },
+        {
+          "name": "Get Managers by Department",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/departments/:department_id/managers", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","departments",":department_id","managers"], "variable": [{ "key": "department_id", "value": "<department-uuid>" }] },
+            "description": "Get all managers (department managers or those with direct reports) for a specific department. Useful for populating manager dropdowns when creating/editing employees."
+          }
         }
       ]
     },
