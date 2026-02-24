@@ -34,6 +34,8 @@ func (r *UserRepository) Create(user *models.User) error {
 func (r *UserRepository) GetUserByID(id uuid.UUID) (*models.User, error) {
 	query := `
 		SELECT u.user_id, u.email, u.password, u.role_id, u.is_active, u.created_at, u.updated_at,
+		       u.change_password, u.password_changed_at, u.password_expires_at,
+		       u.failed_login_attempts, u.is_locked, u.locked_until,
 		       r.role_id, r.name, r.description
 		FROM users u
 		LEFT JOIN roles r ON u.role_id = r.role_id
@@ -45,6 +47,8 @@ func (r *UserRepository) GetUserByID(id uuid.UUID) (*models.User, error) {
 func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 	query := `
 		SELECT u.user_id, u.email, u.password, u.role_id, u.is_active, u.created_at, u.updated_at,
+		       u.change_password, u.password_changed_at, u.password_expires_at,
+		       u.failed_login_attempts, u.is_locked, u.locked_until,
 		       r.role_id, r.name, r.description
 		FROM users u
 		LEFT JOIN roles r ON u.role_id = r.role_id
@@ -56,6 +60,8 @@ func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 func (r *UserRepository) GetAllUsers() ([]models.User, error) {
 	query := `
 		SELECT u.user_id, u.email, u.password, u.role_id, u.is_active, u.created_at, u.updated_at,
+		       u.change_password, u.password_changed_at, u.password_expires_at,
+		       u.failed_login_attempts, u.is_locked, u.locked_until,
 		       r.role_id, r.name, r.description
 		FROM users u
 		LEFT JOIN roles r ON u.role_id = r.role_id
@@ -101,9 +107,12 @@ func (r *UserRepository) scanUser(row rowScanner) (*models.User, error) {
 	var u models.User
 	var roleID sql.NullString
 	var rRoleID, rName, rDesc sql.NullString
+	var passwordChangedAt, passwordExpiresAt, lockedUntil sql.NullTime
 
 	err := row.Scan(
 		&u.UserID, &u.Email, &u.Password, &roleID, &u.IsActive, &u.CreatedAt, &u.UpdatedAt,
+		&u.ChangePassword, &passwordChangedAt, &passwordExpiresAt,
+		&u.FailedLoginAttempts, &u.IsLocked, &lockedUntil,
 		&rRoleID, &rName, &rDesc,
 	)
 	if err != nil {
@@ -113,6 +122,18 @@ func (r *UserRepository) scanUser(row rowScanner) (*models.User, error) {
 	if roleID.Valid {
 		parsed, _ := uuid.Parse(roleID.String)
 		u.RoleID = &parsed
+	}
+
+	if passwordChangedAt.Valid {
+		u.PasswordChangedAt = &passwordChangedAt.Time
+	}
+
+	if passwordExpiresAt.Valid {
+		u.PasswordExpiresAt = &passwordExpiresAt.Time
+	}
+
+	if lockedUntil.Valid {
+		u.LockedUntil = &lockedUntil.Time
 	}
 
 	if rRoleID.Valid {
