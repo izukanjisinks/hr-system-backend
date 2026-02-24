@@ -6,6 +6,7 @@ import (
 	"hr-system/internal/middleware"
 	"hr-system/internal/models"
 	"hr-system/internal/services"
+	"hr-system/internal/utils/password"
 	"hr-system/pkg/utils"
 
 	"github.com/google/uuid"
@@ -94,6 +95,33 @@ func (h *PasswordPolicyHandler) ChangePassword(w http.ResponseWriter, r *http.Re
 
 	utils.RespondJSON(w, http.StatusOK, map[string]string{
 		"message": "Password changed successfully",
+	})
+}
+
+// GeneratePassword generates a password based on the current password policy
+func (h *PasswordPolicyHandler) GeneratePassword(w http.ResponseWriter, r *http.Request) {
+	// Get current password policy
+	policy := h.policyService.GetPolicy()
+	if policy == nil {
+		utils.RespondError(w, http.StatusNotFound, "No password policy configured")
+		return
+	}
+
+	// Generate password using the policy settings
+	generatedPassword, err := password.GeneratePassword(
+		policy.MinLength,
+		policy.RequireUppercase,
+		policy.RequireLowercase,
+		policy.RequireNumbers,
+		policy.RequireSpecialChars,
+	)
+	if err != nil {
+		utils.RespondError(w, http.StatusInternalServerError, "Failed to generate password")
+		return
+	}
+
+	utils.RespondJSON(w, http.StatusOK, map[string]string{
+		"password": generatedPassword,
 	})
 }
 

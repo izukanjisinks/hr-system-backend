@@ -21,4 +21,8 @@ func RegisterPasswordPolicyRoutes(handler *handlers.PasswordPolicyHandler) {
 
 	http.HandleFunc("POST /api/v1/auth/reset-password",
 		withAuthAndRole(handler.ResetUserPassword, models.RoleSuperAdmin, models.RoleHRManager))
+
+	// Password generation route (accessible to authenticated users)
+	http.HandleFunc("GET /api/v1/password-policy/generate",
+		withAuth(handler.GeneratePassword))
 }
