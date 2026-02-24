@@ -135,12 +135,12 @@ func (r *EmployeeRepository) List(filter interfaces.EmployeeFilter, page, pageSi
 func (r *EmployeeRepository) Update(emp *models.Employee) error {
 	emp.UpdatedAt = time.Now()
 	_, err := r.db.Exec(`
-		UPDATE employees SET first_name=$1, last_name=$2, email=$3, personal_email=$4, phone=$5,
-		date_of_birth=$6, gender=$7, national_id=$8, marital_status=$9, address=$10, city=$11, state=$12,
-		country=$13, department_id=$14, position_id=$15, manager_id=$16, probation_end_date=$17,
-		employment_type=$18, employment_status=$19, termination_date=$20, termination_reason=$21,
-		profile_photo_url=$22, updated_at=$23 WHERE id=$24 AND deleted_at IS NULL`,
-		emp.FirstName, emp.LastName, emp.Email, emp.PersonalEmail, emp.Phone,
+		UPDATE employees SET user_id=$1, first_name=$2, last_name=$3, email=$4, personal_email=$5, phone=$6,
+		date_of_birth=$7, gender=$8, national_id=$9, marital_status=$10, address=$11, city=$12, state=$13,
+		country=$14, department_id=$15, position_id=$16, manager_id=$17, probation_end_date=$18,
+		employment_type=$19, employment_status=$20, termination_date=$21, termination_reason=$22,
+		profile_photo_url=$23, updated_at=$24 WHERE id=$25 AND deleted_at IS NULL`,
+		emp.UserID, emp.FirstName, emp.LastName, emp.Email, emp.PersonalEmail, emp.Phone,
 		emp.DateOfBirth, emp.Gender, emp.NationalID, emp.MaritalStatus, emp.Address, emp.City,
 		emp.State, emp.Country, emp.DepartmentID, emp.PositionID, emp.ManagerID, emp.ProbationEndDate,
 		emp.EmploymentType, emp.EmploymentStatus, emp.TerminationDate, emp.TerminationReason,

@@ -8,22 +8,33 @@ import (
 	"hr-system/internal/interfaces"
 	"hr-system/internal/models"
 	"hr-system/internal/repository"
+	"hr-system/internal/utils/email"
 
 	"github.com/google/uuid"
 )
 
 type EmployeeService struct {
-	repo       *repository.EmployeeRepository
-	deptRepo   *repository.DepartmentRepository
-	posRepo    *repository.PositionRepository
+	repo         *repository.EmployeeRepository
+	deptRepo     *repository.DepartmentRepository
+	posRepo      *repository.PositionRepository
+	userService  *UserService
+	emailService *email.EmailService
 }
 
 func NewEmployeeService(
 	repo *repository.EmployeeRepository,
 	deptRepo *repository.DepartmentRepository,
 	posRepo *repository.PositionRepository,
+	userService *UserService,
+	emailService *email.EmailService,
 ) *EmployeeService {
-	return &EmployeeService{repo: repo, deptRepo: deptRepo, posRepo: posRepo}
+	return &EmployeeService{
+		repo:         repo,
+		deptRepo:     deptRepo,
+		posRepo:      posRepo,
+		userService:  userService,
+		emailService: emailService,
+	}
 }
 
 func (s *EmployeeService) Create(emp *models.Employee) error {
@@ -41,6 +52,69 @@ func (s *EmployeeService) Create(emp *models.Employee) error {
 	emp.EmploymentStatus = models.EmploymentStatusActive
 
 	return s.repo.Create(emp)
+}
+
+// CreateWithUser creates an employee and automatically creates a linked user account
+func (s *EmployeeService) CreateWithUser(emp *models.Employee, password string) error {
+	if password == "" {
+		return errors.New("password is required when creating employee with user account")
+	}
+
+	// Validate employee first
+	if err := s.validateEmployee(emp, nil); err != nil {
+		return err
+	}
+
+	// Generate employee number: EMP-YYYYMMDD-XXXX
+	datePrefix := time.Now().Format("20060102")
+	count, err := s.repo.CountByDatePrefix(datePrefix)
+	if err != nil {
+		return err
+	}
+	emp.EmployeeNumber = fmt.Sprintf("EMP-%s-%04d", datePrefix, count+1)
+	emp.EmploymentStatus = models.EmploymentStatusActive
+
+	// Create employee record first
+	if err := s.repo.Create(emp); err != nil {
+		return err
+	}
+
+	// Create user account
+	user := &models.User{
+		Email:          emp.Email,
+		Password:       password,
+		IsActive:       true,
+		ChangePassword: true, // Force password change on first login
+	}
+
+	// Get employee role ID
+	roleRepo := repository.NewRoleRepository()
+	role, err := roleRepo.GetByName(models.RoleEmployee)
+	if err == nil {
+		user.RoleID = &role.RoleID
+	}
+
+	// Register user (this validates password against policy and hashes it)
+	if err := s.userService.Register(user); err != nil {
+		return fmt.Errorf("employee created but user account failed: %w", err)
+	}
+
+	// Send welcome email in background (non-blocking)
+	go func() {
+		welcomeHTML := email.WelcomeEmployeeTemplate(emp.FirstName, emp.LastName, emp.Email, password)
+
+		if err := s.emailService.SendEmail([]string{emp.Email}, "Welcome to HR System", welcomeHTML); err != nil {
+			fmt.Printf("Failed to send welcome email to %s: %v\n", emp.Email, err)
+		}
+	}()
+
+	// Link user to employee
+	emp.UserID = &user.UserID
+	if err := s.repo.Update(emp); err != nil {
+		return fmt.Errorf("employee and user created but linking failed: %w", err)
+	}
+
+	return nil
 }
 
 func (s *EmployeeService) GetByID(id uuid.UUID) (*models.Employee, error) {

@@ -22,23 +22,30 @@ func NewEmployeeHandler(service *services.EmployeeService) *EmployeeHandler {
 }
 
 func (h *EmployeeHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var emp models.Employee
-	if err := utils.DecodeJson(r, &emp); err != nil {
+	var req models.CreateEmployeeRequest
+	if err := utils.DecodeJson(r, &req); err != nil {
 		// Log the detailed error for debugging
 		fmt.Printf("ERROR: Failed to decode employee JSON: %v\n", err)
 		utils.RespondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err))
 		return
 	}
 
-	// Log the received employee data
-	fmt.Printf("DEBUG: Creating employee: %+v\n", emp)
+	// Validate password is provided
+	if req.Password == "" {
+		utils.RespondError(w, http.StatusBadRequest, "password is required")
+		return
+	}
 
-	if err := h.service.Create(&emp); err != nil {
+	// Log the received employee data (without password)
+	fmt.Printf("DEBUG: Creating employee: %s %s <%s>\n", req.FirstName, req.LastName, req.Email)
+
+	// Create employee with user account
+	if err := h.service.CreateWithUser(&req.Employee, req.Password); err != nil {
 		fmt.Printf("ERROR: Failed to create employee in service: %v\n", err)
 		utils.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	utils.RespondJSON(w, http.StatusCreated, emp)
+	utils.RespondJSON(w, http.StatusCreated, req.Employee)
 }
 
 func (h *EmployeeHandler) GetByID(w http.ResponseWriter, r *http.Request) {

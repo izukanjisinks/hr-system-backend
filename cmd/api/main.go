@@ -61,9 +61,6 @@ func main() {
 	userService := services.NewUserService(userRepo, roleRepo)
 	deptService := services.NewDepartmentService(deptRepo)
 	posService := services.NewPositionService(posRepo, deptRepo)
-	empService := services.NewEmployeeService(empRepo, deptRepo, posRepo)
-	docService := services.NewEmployeeDocumentService(docRepo, empRepo)
-	ecService := services.NewEmergencyContactService(ecRepo, empRepo)
 
 	// Services — Phase 2 (create some services early for workflow dependencies)
 	ltService := services.NewLeaveTypeService(ltRepo)
@@ -79,6 +76,11 @@ func main() {
 	// Email Service
 	emailService := email.NewEmailService(&cfg.Email)
 	log.Println("Email service initialized")
+
+	// Employee Service (created after email service for dependency)
+	empService := services.NewEmployeeService(empRepo, deptRepo, posRepo, userService, emailService)
+	docService := services.NewEmployeeDocumentService(docRepo, empRepo)
+	ecService := services.NewEmergencyContactService(ecRepo, empRepo)
 
 	// Workflow Service (create after leave balance service for dependency injection)
 	// Note: LeaveRequestRepo, LeaveBalanceService, and EmailService are passed to enable full workflow functionality

@@ -61,3 +61,9 @@ type Employee struct {
 func (e *Employee) FullName() string {
 	return e.FirstName + " " + e.LastName
 }
+
+// CreateEmployeeRequest is the request payload for creating a new employee
+type CreateEmployeeRequest struct {
+	Employee
+	Password string `json:"password"` // Initial password for the user account
+}
