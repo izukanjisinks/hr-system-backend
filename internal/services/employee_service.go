@@ -79,6 +79,12 @@ func (s *EmployeeService) CreateWithUser(emp *models.Employee, password string) 
 		return err
 	}
 
+	// Get position's role_id to assign to user
+	position, err := s.posRepo.GetByID(emp.PositionID)
+	if err != nil {
+		return fmt.Errorf("failed to get position: %w", err)
+	}
+
 	// Create user account
 	user := &models.User{
 		Email:          emp.Email,
@@ -87,11 +93,16 @@ func (s *EmployeeService) CreateWithUser(emp *models.Employee, password string) 
 		ChangePassword: true, // Force password change on first login
 	}
 
-	// Get employee role ID
-	roleRepo := repository.NewRoleRepository()
-	role, err := roleRepo.GetByName(models.RoleEmployee)
-	if err == nil {
-		user.RoleID = &role.RoleID
+	// Assign role from position, or default to employee role if position has no role
+	if position.RoleID != nil {
+		user.RoleID = position.RoleID
+	} else {
+		// Fallback to employee role if position doesn't have a role assigned
+		roleRepo := repository.NewRoleRepository()
+		role, err := roleRepo.GetByName(models.RoleEmployee)
+		if err == nil {
+			user.RoleID = &role.RoleID
+		}
 	}
 
 	// Register user (this validates password against policy and hashes it)

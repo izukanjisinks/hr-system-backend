@@ -72,6 +72,30 @@
     },
 
     {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "List Roles",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/roles", "host": ["{{baseUrl}}"], "path": ["api","v1","roles"] },
+            "description": "Get all available system roles"
+          }
+        },
+        {
+          "name": "Get Role by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/roles/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","roles",":id"], "variable": [{ "key": "id", "value": "<role-uuid>" }] },
+            "description": "Get a specific role by UUID"
+          }
+        }
+      ]
+    },
+
+    {
       "name": "Departments",
       "item": [
         {
@@ -166,7 +190,7 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/hr/positions", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","positions"] },
-            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Software Engineer\",\n  \"code\": \"SE-01\",\n  \"department_id\": \"<department-uuid>\",\n  \"grade_level\": \"L3\",\n  \"min_salary\": 60000,\n  \"max_salary\": 100000,\n  \"description\": \"Backend software engineer role\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Software Engineer\",\n  \"code\": \"SE-01\",\n  \"department_id\": \"<department-uuid>\",\n  \"role_id\": \"<role-uuid>\",\n  \"grade_level\": \"L3\",\n  \"min_salary\": 60000,\n  \"max_salary\": 100000,\n  \"description\": \"Backend software engineer role\"\n}" },
             "description": "Requires SuperAdmin or HRManager role."
           }
         },
@@ -184,7 +208,7 @@
             "method": "PUT",
             "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/hr/positions/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","positions",":id"], "variable": [{ "key": "id", "value": "<position-uuid>" }] },
-            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Senior Software Engineer\",\n  \"code\": \"SE-02\",\n  \"department_id\": \"<department-uuid>\",\n  \"grade_level\": \"L4\",\n  \"min_salary\": 90000,\n  \"max_salary\": 140000,\n  \"description\": \"Senior backend engineer role\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Senior Software Engineer\",\n  \"code\": \"SE-02\",\n  \"department_id\": \"<department-uuid>\",\n  \"role_id\": \"<role-uuid>\",\n  \"grade_level\": \"L4\",\n  \"min_salary\": 90000,\n  \"max_salary\": 140000,\n  \"description\": \"Senior backend engineer role\"\n}" },
             "description": "Requires SuperAdmin or HRManager role."
           }
         },
