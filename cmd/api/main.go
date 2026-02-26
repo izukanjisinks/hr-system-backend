@@ -113,6 +113,7 @@ func main() {
 
 	// Handlers — Phase 1
 	authHandler := handlers.NewAuthHandler(userService)
+	userHandler := handlers.NewUserHandler(userService)
 	roleHandler := handlers.NewRoleHandler(roleService)
 	deptHandler := handlers.NewDepartmentHandler(deptService)
 	posHandler := handlers.NewPositionHandler(posService)
@@ -148,7 +149,7 @@ func main() {
 
 	// Register routes
 	routes.RegisterRoutes(
-		authHandler, roleHandler, deptHandler, posHandler, empHandler, docHandler, ecHandler,
+		authHandler, userHandler, roleHandler, deptHandler, posHandler, empHandler, docHandler, ecHandler,
 		ltHandler, lbHandler, lrHandler, attHandler, holidayHandler, dashboardHandler,
 		workflowHandler, workflowAdminHandler,
 	)

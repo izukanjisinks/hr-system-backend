@@ -2,6 +2,8 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"hr-system/internal/database"
@@ -82,6 +84,77 @@ func (r *UserRepository) GetAllUsers() ([]models.User, error) {
 		users = append(users, *u)
 	}
 	return users, rows.Err()
+}
+
+// List returns paginated users with optional filtering
+func (r *UserRepository) List(search string, roleID *uuid.UUID, isActive *bool, page, pageSize int) ([]models.User, int, error) {
+	args := []interface{}{}
+	where := []string{}
+	i := 1
+
+	// Search filter
+	if search != "" {
+		where = append(where, fmt.Sprintf("(u.email ILIKE $%d)", i))
+		args = append(args, "%"+search+"%")
+		i++
+	}
+
+	// Role filter
+	if roleID != nil {
+		where = append(where, fmt.Sprintf("u.role_id=$%d", i))
+		args = append(args, *roleID)
+		i++
+	}
+
+	// Active status filter
+	if isActive != nil {
+		where = append(where, fmt.Sprintf("u.is_active=$%d", i))
+		args = append(args, *isActive)
+		i++
+	}
+
+	whereStr := "1=1"
+	if len(where) > 0 {
+		whereStr = strings.Join(where, " AND ")
+	}
+
+	// Get total count
+	var total int
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM users u WHERE %s`, whereStr)
+	err := r.db.QueryRow(countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated results
+	args = append(args, pageSize, (page-1)*pageSize)
+	query := fmt.Sprintf(`
+		SELECT u.user_id, u.email, u.password, u.role_id, u.is_active, u.created_at, u.updated_at,
+		       u.change_password, u.password_changed_at, u.password_expires_at,
+		       u.failed_login_attempts, u.is_locked, u.locked_until,
+		       r.role_id, r.name, r.description
+		FROM users u
+		LEFT JOIN roles r ON u.role_id = r.role_id
+		WHERE %s
+		ORDER BY u.created_at DESC
+		LIMIT $%d OFFSET $%d`, whereStr, i, i+1)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		u, err := r.scanUser(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		users = append(users, *u)
+	}
+
+	return users, total, rows.Err()
 }
 
 func (r *UserRepository) Update(user *models.User) error {

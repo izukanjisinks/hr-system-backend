@@ -12,13 +12,18 @@ import (
 )
 
 type UserService struct {
-	repo                 *repository.UserRepository
-	roleRepo             *repository.RoleRepository
+	repo                  *repository.UserRepository
+	roleRepo              *repository.RoleRepository
+	empRepo               *repository.EmployeeRepository
 	passwordPolicyService *PasswordPolicyService
 }
 
 func NewUserService(repo *repository.UserRepository, roleRepo *repository.RoleRepository) *UserService {
-	return &UserService{repo: repo, roleRepo: roleRepo}
+	return &UserService{
+		repo:     repo,
+		roleRepo: roleRepo,
+		empRepo:  repository.NewEmployeeRepository(),
+	}
 }
 
 // SetPasswordPolicyService sets the password policy service (called after initialization)
@@ -170,6 +175,11 @@ func (s *UserService) Login(email, password string) (map[string]interface{}, err
 
 func (s *UserService) GetAllUsers() ([]models.User, error) {
 	return s.repo.GetAllUsers()
+}
+
+// ListUsers returns paginated users with optional filtering
+func (s *UserService) ListUsers(search string, roleID *uuid.UUID, isActive *bool, page, pageSize int) ([]models.User, int, error) {
+	return s.repo.List(search, roleID, isActive, page, pageSize)
 }
 
 func (s *UserService) GetUserByID(id uuid.UUID) (*models.User, error) {
@@ -350,4 +360,28 @@ func (s *UserService) SeedSuperAdmin(email, password string) error {
 	}
 
 	return nil
+}
+
+// GetProfile retrieves the complete profile (user + employee data) for a user
+func (s *UserService) GetProfile(userID uuid.UUID) (*models.ProfileResponse, error) {
+	// Get user data
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	// Clear sensitive data
+	user.Password = ""
+
+	profile := &models.ProfileResponse{
+		User: user,
+	}
+
+	// Try to get employee data (not all users have employee records)
+	employee, err := s.empRepo.GetByUserID(userID)
+	if err == nil {
+		profile.Employee = employee
+	}
+
+	return profile, nil
 }
