@@ -19,4 +19,16 @@ func RegisterUserRoutes(h *handlers.UserHandler) {
 	// Get user by ID - requires SuperAdmin or HRManager
 	http.HandleFunc("GET /api/v1/users/{id}",
 		withAuthAndRole(h.GetByID, models.RoleSuperAdmin, models.RoleManager, models.RoleHRManager))
+
+	// Delete user - requires SuperAdmin
+	http.HandleFunc("DELETE /api/v1/users/{id}",
+		withAuthAndRole(h.Delete, models.RoleSuperAdmin))
+
+	// Lock user account - requires SuperAdmin or HRManager
+	http.HandleFunc("POST /api/v1/users/{id}/lock",
+		withAuthAndRole(h.Lock, models.RoleSuperAdmin, models.RoleHRManager))
+
+	// Unlock user account - requires SuperAdmin or HRManager
+	http.HandleFunc("POST /api/v1/users/{id}/unlock",
+		withAuthAndRole(h.Unlock, models.RoleSuperAdmin, models.RoleHRManager))
 }

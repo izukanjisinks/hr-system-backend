@@ -77,6 +77,9 @@ func main() {
 	emailService := email.NewEmailService(&cfg.Email)
 	log.Println("Email service initialized")
 
+	// Set email service on user service (for password reset emails)
+	userService.SetEmailService(emailService)
+
 	// Employee Service (created after email service for dependency)
 	empService := services.NewEmployeeService(empRepo, deptRepo, posRepo, userService, emailService)
 	docService := services.NewEmployeeDocumentService(docRepo, empRepo)

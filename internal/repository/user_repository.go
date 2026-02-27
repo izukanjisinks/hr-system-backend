@@ -159,10 +159,34 @@ func (r *UserRepository) List(search string, roleID *uuid.UUID, isActive *bool, 
 
 func (r *UserRepository) Update(user *models.User) error {
 	query := `
-		UPDATE users SET email = $1, role_id = $2, is_active = $3, updated_at = $4
-		WHERE user_id = $5`
-	_, err := r.db.Exec(query, user.Email, user.RoleID, user.IsActive, time.Now(), user.UserID)
+		UPDATE users SET email = $1, role_id = $2, is_active = $3, updated_at = $4,
+		       password = $5, change_password = $6, password_changed_at = $7,
+		       password_expires_at = $8, failed_login_attempts = $9,
+		       is_locked = $10, locked_until = $11
+		WHERE user_id = $12`
+	_, err := r.db.Exec(query,
+		user.Email, user.RoleID, user.IsActive, time.Now(),
+		user.Password, user.ChangePassword, user.PasswordChangedAt,
+		user.PasswordExpiresAt, user.FailedLoginAttempts,
+		user.IsLocked, user.LockedUntil, user.UserID,
+	)
 	return err
+}
+
+func (r *UserRepository) Delete(id uuid.UUID) error {
+	query := `DELETE FROM users WHERE user_id = $1`
+	result, err := r.db.Exec(query, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+	return nil
 }
 
 func (r *UserRepository) EmailExists(email string) (bool, error) {

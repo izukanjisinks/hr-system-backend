@@ -2,10 +2,13 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"hr-system/internal/models"
 	"hr-system/internal/repository"
+	"hr-system/internal/utils/email"
+	"hr-system/internal/utils/password"
 	"hr-system/pkg/utils"
 
 	"github.com/google/uuid"
@@ -16,6 +19,7 @@ type UserService struct {
 	roleRepo              *repository.RoleRepository
 	empRepo               *repository.EmployeeRepository
 	passwordPolicyService *PasswordPolicyService
+	emailService          *email.EmailService
 }
 
 func NewUserService(repo *repository.UserRepository, roleRepo *repository.RoleRepository) *UserService {
@@ -24,6 +28,11 @@ func NewUserService(repo *repository.UserRepository, roleRepo *repository.RoleRe
 		roleRepo: roleRepo,
 		empRepo:  repository.NewEmployeeRepository(),
 	}
+}
+
+// SetEmailService sets the email service (called after initialization)
+func (s *UserService) SetEmailService(emailService *email.EmailService) {
+	s.emailService = emailService
 }
 
 // SetPasswordPolicyService sets the password policy service (called after initialization)
@@ -223,6 +232,37 @@ func (s *UserService) DeactivateUser(id uuid.UUID) error {
 	return s.repo.Update(user)
 }
 
+func (s *UserService) DeleteUser(id uuid.UUID) error {
+	_, err := s.repo.GetUserByID(id)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	return s.repo.Delete(id)
+}
+
+// LockUser locks a user account (admin action)
+func (s *UserService) LockUser(id uuid.UUID) error {
+	user, err := s.repo.GetUserByID(id)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	user.IsLocked = true
+	user.LockedUntil = nil // permanent lock until admin unlocks
+	return s.repo.Update(user)
+}
+
+// UnlockUser unlocks a user account and resets failed login attempts
+func (s *UserService) UnlockUser(id uuid.UUID) error {
+	user, err := s.repo.GetUserByID(id)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	user.IsLocked = false
+	user.LockedUntil = nil
+	user.FailedLoginAttempts = 0
+	return s.repo.Update(user)
+}
+
 // ChangePassword allows a user to change their password
 func (s *UserService) ChangePassword(userID uuid.UUID, oldPassword, newPassword string) error {
 	user, err := s.repo.GetUserByID(userID)
@@ -271,18 +311,17 @@ func (s *UserService) ChangePassword(userID uuid.UUID, oldPassword, newPassword 
 	return nil
 }
 
-// ResetPassword allows admin to reset a user's password
-func (s *UserService) ResetPassword(userID uuid.UUID, newPassword string) error {
+// ResetPassword allows admin to reset a user's password with an auto-generated password and emails it to the user
+func (s *UserService) ResetPassword(userID uuid.UUID) error {
 	user, err := s.repo.GetUserByID(userID)
 	if err != nil {
 		return errors.New("user not found")
 	}
 
-	// Validate new password against policy
-	if s.passwordPolicyService != nil {
-		if err := s.passwordPolicyService.ValidateNewPassword(userID, newPassword, ""); err != nil {
-			return err
-		}
+	// Generate a random password
+	newPassword, err := password.GenerateTemporaryPassword()
+	if err != nil {
+		return fmt.Errorf("failed to generate temporary password: %w", err)
 	}
 
 	// Hash new password
@@ -312,6 +351,17 @@ func (s *UserService) ResetPassword(userID uuid.UUID, newPassword string) error 
 	// Record in password history
 	if s.passwordPolicyService != nil {
 		_ = s.passwordPolicyService.RecordPasswordChange(userID, hashed)
+	}
+
+	// Send the new password to the user's email in a goroutine
+	if s.emailService != nil {
+		userEmail := user.Email
+		go func() {
+			htmlBody := email.PasswordResetTemplate(newPassword)
+			if err := s.emailService.SendEmail([]string{userEmail}, "Your Password Has Been Reset", htmlBody); err != nil {
+				fmt.Printf("WARNING: Failed to send password reset email to %s: %v\n", userEmail, err)
+			}
+		}()
 	}
 
 	return nil

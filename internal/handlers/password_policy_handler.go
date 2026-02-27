@@ -140,16 +140,15 @@ func (h *PasswordPolicyHandler) ResetUserPassword(w http.ResponseWriter, r *http
 	}
 
 	var req struct {
-		UserID      string `json:"user_id"`
-		NewPassword string `json:"new_password"`
+		UserID string `json:"user_id"`
 	}
 	if err := utils.DecodeJson(r, &req); err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	if req.UserID == "" || req.NewPassword == "" {
-		utils.RespondError(w, http.StatusBadRequest, "User ID and new password are required")
+	if req.UserID == "" {
+		utils.RespondError(w, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
@@ -159,12 +158,12 @@ func (h *PasswordPolicyHandler) ResetUserPassword(w http.ResponseWriter, r *http
 		return
 	}
 
-	if err := h.userService.ResetPassword(userID, req.NewPassword); err != nil {
+	if err := h.userService.ResetPassword(userID); err != nil {
 		utils.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	utils.RespondJSON(w, http.StatusOK, map[string]string{
-		"message": "Password reset successfully. User must change password on next login.",
+		"message": "Password reset successfully. A temporary password has been sent to the user's email. User must change password on next login.",
 	})
 }

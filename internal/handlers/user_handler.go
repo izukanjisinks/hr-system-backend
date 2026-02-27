@@ -98,3 +98,57 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 	utils.RespondJSON(w, http.StatusOK, profile)
 }
+
+func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	if err := h.service.DeleteUser(id); err != nil {
+		utils.RespondError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	utils.RespondJSON(w, http.StatusOK, map[string]string{
+		"message": "User deleted successfully",
+	})
+}
+
+func (h *UserHandler) Lock(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	if err := h.service.LockUser(id); err != nil {
+		utils.RespondError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	utils.RespondJSON(w, http.StatusOK, map[string]string{
+		"message": "User account locked successfully",
+	})
+}
+
+func (h *UserHandler) Unlock(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	if err := h.service.UnlockUser(id); err != nil {
+		utils.RespondError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	utils.RespondJSON(w, http.StatusOK, map[string]string{
+		"message": "User account unlocked successfully",
+	})
+}

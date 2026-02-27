@@ -112,6 +112,33 @@
             "url": { "raw": "{{baseUrl}}/api/v1/users/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","users",":id"], "variable": [{ "key": "id", "value": "<user-uuid>" }] },
             "description": "Get a specific user by UUID. Requires SuperAdmin or HRManager role."
           }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","users",":id"], "variable": [{ "key": "id", "value": "<user-uuid>" }] },
+            "description": "Permanently delete a user. Requires SuperAdmin role."
+          }
+        },
+        {
+          "name": "Lock User Account",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/:id/lock", "host": ["{{baseUrl}}"], "path": ["api","v1","users",":id","lock"], "variable": [{ "key": "id", "value": "<user-uuid>" }] },
+            "description": "Lock a user's account, preventing them from logging in. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Unlock User Account",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/:id/unlock", "host": ["{{baseUrl}}"], "path": ["api","v1","users",":id","unlock"], "variable": [{ "key": "id", "value": "<user-uuid>" }] },
+            "description": "Unlock a user's account and reset failed login attempts. Requires SuperAdmin or HRManager role."
+          }
         }
       ]
     },
@@ -890,8 +917,8 @@
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
             "url": { "raw": "{{baseUrl}}/api/v1/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","reset-password"] },
-            "body": { "mode": "raw", "raw": "{\n  \"user_id\": \"<user-uuid>\",\n  \"new_password\": \"TempPassword@789\"\n}" },
-            "description": "Requires SuperAdmin or HRManager role. Reset a user's password. User will be forced to change password on next login."
+            "body": { "mode": "raw", "raw": "{\n  \"user_id\": \"<user-uuid>\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Generates a random temporary password and sends it to the user's email. User will be forced to change password on next login."
           }
         },
         {
