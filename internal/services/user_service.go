@@ -223,6 +223,27 @@ func (s *UserService) UpdateUser(updates *models.User) (*models.User, error) {
 	return s.repo.GetUserByID(existing.UserID)
 }
 
+// ChangeUserRole changes a user's role
+func (s *UserService) ChangeUserRole(userID uuid.UUID, roleID uuid.UUID) (*models.User, error) {
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	// Verify role exists
+	_, err = s.roleRepo.GetByID(roleID)
+	if err != nil {
+		return nil, errors.New("role not found")
+	}
+
+	user.RoleID = &roleID
+	if err := s.repo.Update(user); err != nil {
+		return nil, err
+	}
+
+	return s.repo.GetUserByID(userID)
+}
+
 func (s *UserService) DeactivateUser(id uuid.UUID) error {
 	user, err := s.repo.GetUserByID(id)
 	if err != nil {

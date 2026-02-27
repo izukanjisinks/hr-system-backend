@@ -99,6 +99,43 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	utils.RespondJSON(w, http.StatusOK, profile)
 }
 
+func (h *UserHandler) ChangeRole(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Invalid user ID")
+		return
+	}
+
+	var req struct {
+		RoleID string `json:"role_id"`
+	}
+	if err := utils.DecodeJson(r, &req); err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.RoleID == "" {
+		utils.RespondError(w, http.StatusBadRequest, "Role ID is required")
+		return
+	}
+
+	roleID, err := uuid.Parse(req.RoleID)
+	if err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Invalid role ID")
+		return
+	}
+
+	user, err := h.service.ChangeUserRole(id, roleID)
+	if err != nil {
+		utils.RespondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	user.Password = ""
+	utils.RespondJSON(w, http.StatusOK, user)
+}
+
 func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := uuid.Parse(idStr)

@@ -20,6 +20,10 @@ func RegisterUserRoutes(h *handlers.UserHandler) {
 	http.HandleFunc("GET /api/v1/users/{id}",
 		withAuthAndRole(h.GetByID, models.RoleSuperAdmin, models.RoleManager, models.RoleHRManager))
 
+	// Change user role - requires SuperAdmin
+	http.HandleFunc("PATCH /api/v1/users/{id}/role",
+		withAuthAndRole(h.ChangeRole, models.RoleSuperAdmin))
+
 	// Delete user - requires SuperAdmin
 	http.HandleFunc("DELETE /api/v1/users/{id}",
 		withAuthAndRole(h.Delete, models.RoleSuperAdmin))
