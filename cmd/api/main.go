@@ -131,6 +131,16 @@ func main() {
 	holidayHandler := handlers.NewHolidayHandler(holidayService)
 	attHandler := handlers.NewAttendanceHandler(attService, empService)
 
+	// Payslip
+	payslipRepo := repository.NewPayslipRepository()
+	payslipService := services.NewPayslipService(payslipRepo, empRepo, posRepo, lbRepo)
+	payslipHandler := handlers.NewPayslipHandler(payslipService)
+
+	// Payroll
+	payrollRepo := repository.NewPayrollRepository()
+	payrollService := services.NewPayrollService(payrollRepo, payslipService, empRepo, emailService)
+	payrollHandler := handlers.NewPayrollHandler(payrollService)
+
 	// Dashboard
 	dashboardService := services.NewDashboardService(empRepo, posRepo, deptRepo, lbRepo, lrRepo)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
@@ -157,6 +167,8 @@ func main() {
 		workflowHandler, workflowAdminHandler,
 	)
 	routes.RegisterPasswordPolicyRoutes(passwordPolicyHandler)
+	routes.RegisterPayslipRoutes(payslipHandler)
+	routes.RegisterPayrollRoutes(payrollHandler)
 
 	// Apply CORS middleware globally to the default mux
 	handler := middleware.CORS(http.DefaultServeMux)

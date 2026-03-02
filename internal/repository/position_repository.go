@@ -27,10 +27,11 @@ func (r *PositionRepository) Create(pos *models.Position) error {
 	pos.CreatedAt = now
 	pos.UpdatedAt = now
 	_, err := r.db.Exec(`
-		INSERT INTO positions (id, title, code, department_id, role_id, grade_level, min_salary, max_salary, description, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		INSERT INTO positions (id, title, code, department_id, role_id, grade_level, base_salary, housing_allowance, transport_allowance, medical_allowance, income_tax, description, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
 		pos.ID, pos.Title, pos.Code, pos.DepartmentID, pos.RoleID, pos.GradeLevel,
-		pos.MinSalary, pos.MaxSalary, pos.Description, pos.IsActive, pos.CreatedAt, pos.UpdatedAt,
+		pos.BaseSalary, pos.HousingAllowance, pos.TransportAllowance, pos.MedicalAllowance, pos.IncomeTax,
+		pos.Description, pos.IsActive, pos.CreatedAt, pos.UpdatedAt,
 	)
 	return err
 }
@@ -38,10 +39,11 @@ func (r *PositionRepository) Create(pos *models.Position) error {
 func (r *PositionRepository) GetByID(id uuid.UUID) (*models.Position, error) {
 	var p models.Position
 	err := r.db.QueryRow(`
-		SELECT id, title, code, department_id, role_id, grade_level, min_salary, max_salary, description, is_active, created_at, updated_at, deleted_at
+		SELECT id, title, code, department_id, role_id, grade_level, base_salary, housing_allowance, transport_allowance, medical_allowance, income_tax, description, is_active, created_at, updated_at, deleted_at
 		FROM positions WHERE id=$1 AND deleted_at IS NULL`, id,
 	).Scan(&p.ID, &p.Title, &p.Code, &p.DepartmentID, &p.RoleID, &p.GradeLevel,
-		&p.MinSalary, &p.MaxSalary, &p.Description, &p.IsActive, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt)
+		&p.BaseSalary, &p.HousingAllowance, &p.TransportAllowance, &p.MedicalAllowance, &p.IncomeTax,
+		&p.Description, &p.IsActive, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +81,7 @@ func (r *PositionRepository) List(filter interfaces.PositionFilter, page, pageSi
 
 	args = append(args, pageSize, (page-1)*pageSize)
 	rows, err := r.db.Query(fmt.Sprintf(`
-		SELECT id, title, code, department_id, role_id, grade_level, min_salary, max_salary, description, is_active, created_at, updated_at, deleted_at
+		SELECT id, title, code, department_id, role_id, grade_level, base_salary, housing_allowance, transport_allowance, medical_allowance, income_tax, description, is_active, created_at, updated_at, deleted_at
 		FROM positions WHERE %s ORDER BY title LIMIT $%d OFFSET $%d`, whereStr, i, i+1), args...)
 	if err != nil {
 		return nil, 0, err
@@ -90,7 +92,8 @@ func (r *PositionRepository) List(filter interfaces.PositionFilter, page, pageSi
 	for rows.Next() {
 		var p models.Position
 		if err := rows.Scan(&p.ID, &p.Title, &p.Code, &p.DepartmentID, &p.RoleID, &p.GradeLevel,
-			&p.MinSalary, &p.MaxSalary, &p.Description, &p.IsActive, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt); err != nil {
+			&p.BaseSalary, &p.HousingAllowance, &p.TransportAllowance, &p.MedicalAllowance, &p.IncomeTax,
+			&p.Description, &p.IsActive, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt); err != nil {
 			return nil, 0, err
 		}
 		positions = append(positions, p)
@@ -101,10 +104,12 @@ func (r *PositionRepository) List(filter interfaces.PositionFilter, page, pageSi
 func (r *PositionRepository) Update(pos *models.Position) error {
 	pos.UpdatedAt = time.Now()
 	_, err := r.db.Exec(`
-		UPDATE positions SET title=$1, code=$2, department_id=$3, role_id=$4, grade_level=$5, min_salary=$6,
-		max_salary=$7, description=$8, is_active=$9, updated_at=$10 WHERE id=$11 AND deleted_at IS NULL`,
-		pos.Title, pos.Code, pos.DepartmentID, pos.RoleID, pos.GradeLevel, pos.MinSalary,
-		pos.MaxSalary, pos.Description, pos.IsActive, pos.UpdatedAt, pos.ID,
+		UPDATE positions SET title=$1, code=$2, department_id=$3, role_id=$4, grade_level=$5, base_salary=$6,
+		housing_allowance=$7, transport_allowance=$8, medical_allowance=$9, income_tax=$10,
+		description=$11, is_active=$12, updated_at=$13 WHERE id=$14 AND deleted_at IS NULL`,
+		pos.Title, pos.Code, pos.DepartmentID, pos.RoleID, pos.GradeLevel, pos.BaseSalary,
+		pos.HousingAllowance, pos.TransportAllowance, pos.MedicalAllowance, pos.IncomeTax,
+		pos.Description, pos.IsActive, pos.UpdatedAt, pos.ID,
 	)
 	return err
 }

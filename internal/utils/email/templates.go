@@ -542,3 +542,65 @@ func WelcomeEmployeeTemplate(firstName, lastName, userEmail, password string) st
 </html>
 `, firstName, lastName, userEmail, password, loginButton())
 }
+
+// PayslipReadyTemplate generates HTML for payslip ready notification
+func PayslipReadyTemplate(firstName, period string, baseSalary, grossSalary, incomeTax, netSalary float64) string {
+	return fmt.Sprintf(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Payslip Ready</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f6f9; font-family: Arial, Helvetica, sans-serif;">
+
+  <table width="100%%%%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f9; padding:40px 0;">
+    <tr>
+      <td align="center">
+
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.08); overflow:hidden;">
+
+          <tr>
+            <td style="background:linear-gradient(135deg, #1e6d3a, #28a745); padding:30px; text-align:center;">
+              <h1 style="color:#ffffff; margin:0; font-size:22px; letter-spacing:0.5px;">
+                Your Payslip is Ready
+              </h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:40px 30px; color:#333333; font-size:15px; line-height:1.6;">
+
+              <p style="margin-top:0;">Hi %s,</p>
+
+              <p>Your payslip for <strong>%s</strong> has been processed and is now available.</p>
+
+              <p>Log in to the HR portal to view your full payslip breakdown.</p>
+
+              %s
+
+              <p style="margin-bottom:0;">
+                Best regards,<br/>
+                <strong>HR System</strong>
+              </p>
+
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background-color:#f8f9fc; padding:20px; text-align:center; font-size:12px; color:#888;">
+              This is an automated message from the HR System. Please do not reply to this email.
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
+`, firstName, period, baseSalary, grossSalary, incomeTax, netSalary, loginButton())
+}

@@ -275,8 +275,8 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/hr/positions", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","positions"] },
-            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Software Engineer\",\n  \"code\": \"SE-01\",\n  \"department_id\": \"<department-uuid>\",\n  \"role_id\": \"<role-uuid>\",\n  \"grade_level\": \"L3\",\n  \"min_salary\": 60000,\n  \"max_salary\": 100000,\n  \"description\": \"Backend software engineer role\"\n}" },
-            "description": "Requires SuperAdmin or HRManager role."
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Software Engineer\",\n  \"code\": \"SE-01\",\n  \"department_id\": \"<department-uuid>\",\n  \"role_id\": \"<role-uuid>\",\n  \"grade_level\": \"L3\",\n  \"base_salary\": 10000,\n  \"description\": \"Backend software engineer role\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Only base_salary is required — housing_allowance (20%), transport_allowance (10%), medical_allowance (8%) and income_tax (PAYE) are auto-calculated from the base salary."
           }
         },
         {
@@ -293,8 +293,8 @@
             "method": "PUT",
             "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/hr/positions/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","positions",":id"], "variable": [{ "key": "id", "value": "<position-uuid>" }] },
-            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Senior Software Engineer\",\n  \"code\": \"SE-02\",\n  \"department_id\": \"<department-uuid>\",\n  \"role_id\": \"<role-uuid>\",\n  \"grade_level\": \"L4\",\n  \"min_salary\": 90000,\n  \"max_salary\": 140000,\n  \"description\": \"Senior backend engineer role\"\n}" },
-            "description": "Requires SuperAdmin or HRManager role."
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Senior Software Engineer\",\n  \"code\": \"SE-02\",\n  \"department_id\": \"<department-uuid>\",\n  \"role_id\": \"<role-uuid>\",\n  \"grade_level\": \"L4\",\n  \"base_salary\": 15000,\n  \"description\": \"Senior backend engineer role\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Only base_salary is required — allowances and income tax are auto-calculated."
           }
         },
         {
@@ -1117,6 +1117,144 @@
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-transitions/:transition_id", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-transitions",":transition_id"], "variable": [{ "key": "transition_id", "value": "<transition-uuid>" }] },
             "description": "Requires SuperAdmin or HRManager role. Permanently delete workflow transition."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Payslips",
+      "item": [
+        {
+          "name": "Get My Payslips",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/payslips/me",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payslips","me"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "year", "value": "2026", "disabled": true }
+              ]
+            },
+            "description": "Get payslips for the currently authenticated employee. Optionally filter by year."
+          }
+        },
+        {
+          "name": "List Payslips",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/payslips",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payslips"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "employee_id", "value": "", "disabled": true },
+                { "key": "month", "value": "", "disabled": true },
+                { "key": "year", "value": "", "disabled": true }
+              ]
+            },
+            "description": "List all payslips with optional filters. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Generate Payslip",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payslips", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payslips"] },
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"<employee-uuid>\",\n  \"month\": 3,\n  \"year\": 2026\n}" },
+            "description": "Generate a payslip for an employee. Salary data is pulled from the employee's position (base_salary, allowances, PAYE). Leave days compensation is calculated from unused leave balance. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Get Payslip",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payslips/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payslips",":id"], "variable": [{ "key": "id", "value": "<payslip-uuid>" }] }
+          }
+        },
+        {
+          "name": "Delete Payslip",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payslips/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payslips",":id"], "variable": [{ "key": "id", "value": "<payslip-uuid>" }] },
+            "description": "Delete a payslip. Requires SuperAdmin role."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Payrolls",
+      "item": [
+        {
+          "name": "List Payrolls",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/payrolls",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "status", "value": "", "disabled": true, "description": "OPEN | PROCESSING | COMPLETED | CANCELLED" }
+              ]
+            },
+            "description": "List all payrolls with optional status filter. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Create Payroll",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payrolls", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls"] },
+            "body": { "mode": "raw", "raw": "{\n  \"start_date\": \"2026-03-01\",\n  \"end_date\": \"2026-03-31\"\n}" },
+            "description": "Open a new payroll period. Status defaults to OPEN. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Get Payroll",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payrolls/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls",":id"], "variable": [{ "key": "id", "value": "<payroll-uuid>" }] },
+            "description": "Get payroll details including associated payslips (linked by month/year from end_date). Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Process Payroll",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payrolls/:id/process", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls",":id","process"], "variable": [{ "key": "id", "value": "<payroll-uuid>" }] },
+            "description": "Process a payroll: generates payslips for all active employees using the month/year from the payroll's end_date. Marks payroll as COMPLETED with processed_by set to the current user. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Cancel Payroll",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payrolls/:id/cancel", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls",":id","cancel"], "variable": [{ "key": "id", "value": "<payroll-uuid>" }] },
+            "description": "Cancel a payroll. Only OPEN payrolls can be cancelled. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Delete Payroll",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payrolls/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls",":id"], "variable": [{ "key": "id", "value": "<payroll-uuid>" }] },
+            "description": "Delete a payroll (only if OPEN). Requires SuperAdmin role."
           }
         }
       ]
