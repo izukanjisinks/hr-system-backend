@@ -52,21 +52,21 @@ func (r *PositionRepository) GetByID(id uuid.UUID) (*models.Position, error) {
 
 func (r *PositionRepository) List(filter interfaces.PositionFilter, page, pageSize int) ([]models.Position, int, error) {
 	args := []interface{}{}
-	where := []string{"deleted_at IS NULL"}
+	where := []string{"p.deleted_at IS NULL"}
 	i := 1
 
 	if filter.DepartmentID != nil {
-		where = append(where, fmt.Sprintf("department_id=$%d", i))
+		where = append(where, fmt.Sprintf("p.department_id=$%d", i))
 		args = append(args, *filter.DepartmentID)
 		i++
 	}
 	if filter.GradeLevel != "" {
-		where = append(where, fmt.Sprintf("grade_level=$%d", i))
+		where = append(where, fmt.Sprintf("p.grade_level=$%d", i))
 		args = append(args, filter.GradeLevel)
 		i++
 	}
 	if filter.IsActive != nil {
-		where = append(where, fmt.Sprintf("is_active=$%d", i))
+		where = append(where, fmt.Sprintf("p.is_active=$%d", i))
 		args = append(args, *filter.IsActive)
 		i++
 	}
@@ -74,15 +74,18 @@ func (r *PositionRepository) List(filter interfaces.PositionFilter, page, pageSi
 	whereStr := strings.Join(where, " AND ")
 
 	var total int
-	err := r.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM positions WHERE %s`, whereStr), args...).Scan(&total)
+	err := r.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM positions p WHERE %s`, whereStr), args...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	args = append(args, pageSize, (page-1)*pageSize)
 	rows, err := r.db.Query(fmt.Sprintf(`
-		SELECT id, title, code, department_id, role_id, grade_level, base_salary, housing_allowance, transport_allowance, medical_allowance, income_tax, description, is_active, created_at, updated_at, deleted_at
-		FROM positions WHERE %s ORDER BY title LIMIT $%d OFFSET $%d`, whereStr, i, i+1), args...)
+		SELECT p.id, p.title, p.code, p.department_id, p.role_id, p.grade_level, p.base_salary, p.housing_allowance, p.transport_allowance, p.medical_allowance, p.income_tax, p.description, p.is_active, p.created_at, p.updated_at, p.deleted_at,
+		       COALESCE(d.name, '') AS department_name
+		FROM positions p
+		LEFT JOIN departments d ON p.department_id = d.id
+		WHERE %s ORDER BY p.title LIMIT $%d OFFSET $%d`, whereStr, i, i+1), args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -93,7 +96,8 @@ func (r *PositionRepository) List(filter interfaces.PositionFilter, page, pageSi
 		var p models.Position
 		if err := rows.Scan(&p.ID, &p.Title, &p.Code, &p.DepartmentID, &p.RoleID, &p.GradeLevel,
 			&p.BaseSalary, &p.HousingAllowance, &p.TransportAllowance, &p.MedicalAllowance, &p.IncomeTax,
-			&p.Description, &p.IsActive, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt); err != nil {
+			&p.Description, &p.IsActive, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt,
+			&p.DepartmentName); err != nil {
 			return nil, 0, err
 		}
 		positions = append(positions, p)

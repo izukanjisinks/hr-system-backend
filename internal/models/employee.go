@@ -53,6 +53,11 @@ type Employee struct {
 	UpdatedAt          time.Time        `json:"updated_at"`
 	DeletedAt          *time.Time       `json:"deleted_at,omitempty"`
 
+	// Resolved names (populated by List queries)
+	DepartmentName string `json:"department_name,omitempty"`
+	PositionName   string `json:"position_name,omitempty"`
+	ManagerName    string `json:"manager_name,omitempty"`
+
 	// Relations (populated on demand)
 	Department *Department `json:"department,omitempty"`
 	Position   *Position   `json:"position,omitempty"`

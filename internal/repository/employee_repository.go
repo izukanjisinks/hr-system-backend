@@ -114,7 +114,15 @@ func (r *EmployeeRepository) List(filter interfaces.EmployeeFilter, page, pageSi
 
 	args = append(args, pageSize, (page-1)*pageSize)
 	rows, err := r.db.Query(fmt.Sprintf(`
-		SELECT %s FROM employees e WHERE %s ORDER BY e.last_name, e.first_name LIMIT $%d OFFSET $%d`,
+		SELECT %s,
+		       COALESCE(d.name, '') AS department_name,
+		       COALESCE(p.title, '') AS position_name,
+		       COALESCE(m.first_name || ' ' || m.last_name, '') AS manager_name
+		FROM employees e
+		LEFT JOIN departments d ON e.department_id = d.id
+		LEFT JOIN positions p ON e.position_id = p.id
+		LEFT JOIN employees m ON e.manager_id = m.id
+		WHERE %s ORDER BY e.last_name, e.first_name LIMIT $%d OFFSET $%d`,
 		employeeSelectCols, whereStr, i, i+1), args...)
 	if err != nil {
 		return nil, 0, err
@@ -123,7 +131,7 @@ func (r *EmployeeRepository) List(filter interfaces.EmployeeFilter, page, pageSi
 
 	var emps []models.Employee
 	for rows.Next() {
-		emp, err := r.scanEmployee(rows)
+		emp, err := r.scanEmployeeWithNames(rows)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -248,6 +256,32 @@ func (r *EmployeeRepository) scanEmployee(row rowScanner) (*models.Employee, err
 		return nil, err
 	}
 
+	r.resolveNullables(&e, userID, managerID, dob, probEnd, termDate)
+	return &e, nil
+}
+
+func (r *EmployeeRepository) scanEmployeeWithNames(row rowScanner) (*models.Employee, error) {
+	var e models.Employee
+	var userID, managerID sql.NullString
+	var dob, probEnd, termDate sql.NullTime
+
+	err := row.Scan(
+		&e.ID, &userID, &e.EmployeeNumber, &e.FirstName, &e.LastName, &e.Email, &e.PersonalEmail,
+		&e.Phone, &dob, &e.Gender, &e.NationalID, &e.MaritalStatus, &e.Address, &e.City, &e.State,
+		&e.Country, &e.DepartmentID, &e.PositionID, &managerID, &e.HireDate, &probEnd,
+		&e.EmploymentType, &e.EmploymentStatus, &termDate, &e.TerminationReason,
+		&e.ProfilePhotoURL, &e.CreatedAt, &e.UpdatedAt, &e.DeletedAt,
+		&e.DepartmentName, &e.PositionName, &e.ManagerName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	r.resolveNullables(&e, userID, managerID, dob, probEnd, termDate)
+	return &e, nil
+}
+
+func (r *EmployeeRepository) resolveNullables(e *models.Employee, userID, managerID sql.NullString, dob, probEnd, termDate sql.NullTime) {
 	if userID.Valid {
 		p, _ := uuid.Parse(userID.String)
 		e.UserID = &p
@@ -265,6 +299,4 @@ func (r *EmployeeRepository) scanEmployee(row rowScanner) (*models.Employee, err
 	if termDate.Valid {
 		e.TerminationDate = &termDate.Time
 	}
-
-	return &e, nil
 }

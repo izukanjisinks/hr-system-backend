@@ -26,6 +26,9 @@ type Position struct {
 	UpdatedAt          time.Time  `json:"updated_at"`
 	DeletedAt          *time.Time `json:"deleted_at,omitempty"`
 
+	// Resolved names (populated by List queries)
+	DepartmentName string `json:"department_name,omitempty"`
+
 	// Relations (populated on demand)
 	Role *Role `json:"role,omitempty"`
 }
