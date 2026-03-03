@@ -142,7 +142,8 @@ func main() {
 	payrollHandler := handlers.NewPayrollHandler(payrollService)
 
 	// Dashboard
-	dashboardService := services.NewDashboardService(empRepo, posRepo, deptRepo, lbRepo, lrRepo)
+	adminDashRepo := repository.NewAdminDashboardRepository()
+	dashboardService := services.NewDashboardService(empRepo, posRepo, deptRepo, lbRepo, lrRepo, adminDashRepo)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
 
 	// Workflow Handler
