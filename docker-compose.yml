@@ -65,5 +65,18 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # Vue Frontend
+  frontend:
+    build:
+      context: ../hr-system-front-end/hr-system-frontend
+      args:
+        VITE_API_URL: /api/v1
+    container_name: hr-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
 volumes:
   postgres_data:

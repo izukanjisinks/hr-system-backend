@@ -223,6 +223,10 @@ func (s *UserService) UpdateUser(updates *models.User) (*models.User, error) {
 	return s.repo.GetUserByID(existing.UserID)
 }
 
+func (s *UserService) GetByEmail(email string) (*models.User, error) {
+	return s.repo.GetUserByEmail(email)
+}
+
 // ChangeUserRole changes a user's role
 func (s *UserService) ChangeUserRole(userID uuid.UUID, roleID uuid.UUID) (*models.User, error) {
 	user, err := s.repo.GetUserByID(userID)
@@ -389,20 +393,28 @@ func (s *UserService) ResetPassword(userID uuid.UUID) error {
 }
 
 func (s *UserService) SeedSuperAdmin(email, password string) error {
-	exists, err := s.repo.EmailExists(email)
+	hashed, err := utils.HashPassword(password)
 	if err != nil {
 		return err
 	}
-	if exists {
+
+	existing, err := s.repo.GetUserByEmail(email)
+	if err == nil {
+		// User exists — update password and ensure active
+		existing.Password = hashed
+		existing.IsActive = true
+		now := time.Now()
+		existing.PasswordChangedAt = &now
+		if err := s.repo.Update(existing); err != nil {
+			return err
+		}
+		if s.passwordPolicyService != nil {
+			_ = s.passwordPolicyService.RecordPasswordChange(existing.UserID, hashed)
+		}
 		return nil
 	}
 
 	role, err := s.roleRepo.GetByName(models.RoleSuperAdmin)
-	if err != nil {
-		return err
-	}
-
-	hashed, err := utils.HashPassword(password)
 	if err != nil {
 		return err
 	}
@@ -416,7 +428,6 @@ func (s *UserService) SeedSuperAdmin(email, password string) error {
 		PasswordChangedAt: &now,
 	}
 
-	// Set password expiry if policy requires it
 	if s.passwordPolicyService != nil {
 		user.PasswordExpiresAt = s.passwordPolicyService.CalculatePasswordExpiry()
 	}
@@ -425,7 +436,6 @@ func (s *UserService) SeedSuperAdmin(email, password string) error {
 		return err
 	}
 
-	// Record password in history
 	if s.passwordPolicyService != nil {
 		_ = s.passwordPolicyService.RecordPasswordChange(user.UserID, hashed)
 	}

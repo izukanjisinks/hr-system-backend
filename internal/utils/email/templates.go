@@ -544,7 +544,7 @@ func WelcomeEmployeeTemplate(firstName, lastName, userEmail, password string) st
 }
 
 // PayslipReadyTemplate generates HTML for payslip ready notification
-func PayslipReadyTemplate(firstName, period string, baseSalary, grossSalary, incomeTax, netSalary float64) string {
+func PayslipReadyTemplate(firstName, period string) string {
 	return fmt.Sprintf(`
 <!DOCTYPE html>
 <html lang="en">
@@ -578,8 +578,6 @@ func PayslipReadyTemplate(firstName, period string, baseSalary, grossSalary, inc
 
               <p>Log in to the HR portal to view your full payslip breakdown.</p>
 
-              %s
-
               <p style="margin-bottom:0;">
                 Best regards,<br/>
                 <strong>HR System</strong>
@@ -602,5 +600,5 @@ func PayslipReadyTemplate(firstName, period string, baseSalary, grossSalary, inc
 
 </body>
 </html>
-`, firstName, period, baseSalary, grossSalary, incomeTax, netSalary, loginButton())
+`, firstName, period)
 }

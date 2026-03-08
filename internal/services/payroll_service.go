@@ -103,7 +103,7 @@ func (s *PayrollService) processPayslips(payrollID uuid.UUID, processedBy uuid.U
 
 	generated := 0
 	for _, emp := range employees {
-		payslip, err := s.payslipService.Generate(emp.ID, month, year)
+		_, err := s.payslipService.Generate(emp.ID, month, year)
 		if err != nil {
 			log.Printf("payroll %s: skipped employee %s (%s): %s", payrollID, emp.ID, emp.FullName(), err.Error())
 			continue
@@ -115,7 +115,7 @@ func (s *PayrollService) processPayslips(payrollID uuid.UUID, processedBy uuid.U
 			empEmail := emp.Email
 			empName := emp.FirstName
 			go func() {
-				htmlBody := email.PayslipReadyTemplate(empName, period, payslip.BaseSalary, payslip.GrossSalary, payslip.IncomeTax, payslip.NetSalary)
+				htmlBody := email.PayslipReadyTemplate(empName, period)
 				subject := fmt.Sprintf("Your Payslip for %s is Ready", period)
 				if err := s.emailService.SendEmail([]string{empEmail}, subject, htmlBody); err != nil {
 					log.Printf("payroll %s: failed to send payslip email to %s: %v", payrollID, empEmail, err)
