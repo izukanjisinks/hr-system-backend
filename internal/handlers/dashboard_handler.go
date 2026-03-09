@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"hr-system/internal/middleware"
 	"hr-system/internal/services"
@@ -14,6 +15,34 @@ type DashboardHandler struct {
 
 func NewDashboardHandler(svc *services.DashboardService) *DashboardHandler {
 	return &DashboardHandler{service: svc}
+}
+
+func (h *DashboardHandler) GetAdminDashboard(w http.ResponseWriter, r *http.Request) {
+	var from, to *time.Time
+
+	if v := r.URL.Query().Get("from"); v != "" {
+		t, err := time.Parse("2006-01-02", v)
+		if err != nil {
+			utils.RespondError(w, http.StatusBadRequest, "Invalid 'from' date format, use YYYY-MM-DD")
+			return
+		}
+		from = &t
+	}
+	if v := r.URL.Query().Get("to"); v != "" {
+		t, err := time.Parse("2006-01-02", v)
+		if err != nil {
+			utils.RespondError(w, http.StatusBadRequest, "Invalid 'to' date format, use YYYY-MM-DD")
+			return
+		}
+		to = &t
+	}
+
+	stats, err := h.service.GetAdminDashboard(from, to)
+	if err != nil {
+		utils.RespondError(w, http.StatusInternalServerError, "Failed to load admin dashboard")
+		return
+	}
+	utils.RespondJSON(w, http.StatusOK, stats)
 }
 
 func (h *DashboardHandler) GetMyDashboard(w http.ResponseWriter, r *http.Request) {

@@ -53,6 +53,11 @@ type Employee struct {
 	UpdatedAt          time.Time        `json:"updated_at"`
 	DeletedAt          *time.Time       `json:"deleted_at,omitempty"`
 
+	// Resolved names (populated by List queries)
+	DepartmentName string `json:"department_name,omitempty"`
+	PositionName   string `json:"position_name,omitempty"`
+	ManagerName    string `json:"manager_name,omitempty"`
+
 	// Relations (populated on demand)
 	Department *Department `json:"department,omitempty"`
 	Position   *Position   `json:"position,omitempty"`
@@ -60,4 +65,10 @@ type Employee struct {
 
 func (e *Employee) FullName() string {
 	return e.FirstName + " " + e.LastName
+}
+
+// CreateEmployeeRequest is the request payload for creating a new employee
+type CreateEmployeeRequest struct {
+	Employee
+	Password string `json:"password"` // Initial password for the user account
 }

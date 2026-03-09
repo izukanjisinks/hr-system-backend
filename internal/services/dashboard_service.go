@@ -13,11 +13,12 @@ import (
 )
 
 type DashboardService struct {
-	empRepo  *repository.EmployeeRepository
-	posRepo  *repository.PositionRepository
-	deptRepo *repository.DepartmentRepository
-	lbRepo   *repository.LeaveBalanceRepository
-	lrRepo   *repository.LeaveRequestRepository
+	empRepo        *repository.EmployeeRepository
+	posRepo        *repository.PositionRepository
+	deptRepo       *repository.DepartmentRepository
+	lbRepo         *repository.LeaveBalanceRepository
+	lrRepo         *repository.LeaveRequestRepository
+	adminDashRepo  *repository.AdminDashboardRepository
 }
 
 func NewDashboardService(
@@ -26,13 +27,15 @@ func NewDashboardService(
 	deptRepo *repository.DepartmentRepository,
 	lbRepo *repository.LeaveBalanceRepository,
 	lrRepo *repository.LeaveRequestRepository,
+	adminDashRepo *repository.AdminDashboardRepository,
 ) *DashboardService {
 	return &DashboardService{
-		empRepo:  empRepo,
-		posRepo:  posRepo,
-		deptRepo: deptRepo,
-		lbRepo:   lbRepo,
-		lrRepo:   lrRepo,
+		empRepo:       empRepo,
+		posRepo:       posRepo,
+		deptRepo:      deptRepo,
+		lbRepo:        lbRepo,
+		lrRepo:        lrRepo,
+		adminDashRepo: adminDashRepo,
 	}
 }
 
@@ -147,6 +150,11 @@ func (s *DashboardService) GetEmployeeDashboard(userID uuid.UUID) (*models.Emplo
 		YearlyEntitlement:  yearlyEntitlement,
 		LeaveRequests:      leaveRequestCount,
 	}, nil
+}
+
+// GetAdminDashboard returns aggregate stats for the admin/HR dashboard.
+func (s *DashboardService) GetAdminDashboard(from, to *time.Time) (*models.AdminDashboard, error) {
+	return s.adminDashRepo.GetStats(from, to)
 }
 
 // monthsBetween returns the number of whole months between from and to.

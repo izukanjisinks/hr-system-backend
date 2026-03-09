@@ -18,6 +18,10 @@ type Department struct {
 	UpdatedAt          time.Time  `json:"updated_at"`
 	DeletedAt          *time.Time `json:"deleted_at,omitempty"`
 
+	// Resolved names (populated by List queries)
+	ParentDepartmentName string `json:"parent_department_name,omitempty"`
+	ManagerName          string `json:"manager_name,omitempty"`
+
 	// Relations (populated on demand)
 	Children []*Department `json:"children,omitempty"`
 }

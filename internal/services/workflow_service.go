@@ -112,7 +112,7 @@ func (s *WorkflowService) InitiateWorkflow(
 	assigneeUUID, _ := uuid.Parse(assigneeID)
 	if assignee, err := s.userRepo.GetUserByID(assigneeUUID); err == nil {
 		task.TaskDetails = &taskDetails // Add task details for email
-		s.notifyTaskAssignment(task, assignee, instance)
+		go s.notifyTaskAssignment(task, assignee, instance)
 	}
 
 	// Get initiator name for history
@@ -443,6 +443,12 @@ func (s *WorkflowService) updateLeaveRequestStatus(leaveRequestID, reviewerEmplo
 
 // Helper: Send email notification when task is assigned
 func (s *WorkflowService) notifyTaskAssignment(task *models.AssignedTask, assignee *models.User, instance *models.WorkflowInstance) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Recovered from panic in notifyTaskAssignment: %v\n", r)
+		}
+	}()
+
 	if s.emailService == nil {
 		return // Email service not configured
 	}
@@ -500,6 +506,12 @@ func (s *WorkflowService) notifyTaskAssignment(task *models.AssignedTask, assign
 
 // Helper: Send email notification when leave request is approved/rejected
 func (s *WorkflowService) notifyLeaveRequestOutcome(leaveRequestID uuid.UUID, isApproved bool, reviewerName string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("Recovered from panic in notifyLeaveRequestOutcome: %v\n", r)
+		}
+	}()
+
 	if s.emailService == nil {
 		return // Email service not configured
 	}

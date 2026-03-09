@@ -2,23 +2,37 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"hr-system/internal/models"
 	"hr-system/internal/repository"
+	"hr-system/internal/utils/email"
+	"hr-system/internal/utils/password"
 	"hr-system/pkg/utils"
 
 	"github.com/google/uuid"
 )
 
 type UserService struct {
-	repo                 *repository.UserRepository
-	roleRepo             *repository.RoleRepository
+	repo                  *repository.UserRepository
+	roleRepo              *repository.RoleRepository
+	empRepo               *repository.EmployeeRepository
 	passwordPolicyService *PasswordPolicyService
+	emailService          *email.EmailService
 }
 
 func NewUserService(repo *repository.UserRepository, roleRepo *repository.RoleRepository) *UserService {
-	return &UserService{repo: repo, roleRepo: roleRepo}
+	return &UserService{
+		repo:     repo,
+		roleRepo: roleRepo,
+		empRepo:  repository.NewEmployeeRepository(),
+	}
+}
+
+// SetEmailService sets the email service (called after initialization)
+func (s *UserService) SetEmailService(emailService *email.EmailService) {
+	s.emailService = emailService
 }
 
 // SetPasswordPolicyService sets the password policy service (called after initialization)
@@ -172,6 +186,11 @@ func (s *UserService) GetAllUsers() ([]models.User, error) {
 	return s.repo.GetAllUsers()
 }
 
+// ListUsers returns paginated users with optional filtering
+func (s *UserService) ListUsers(search string, roleID *uuid.UUID, isActive *bool, page, pageSize int) ([]models.User, int, error) {
+	return s.repo.List(search, roleID, isActive, page, pageSize)
+}
+
 func (s *UserService) GetUserByID(id uuid.UUID) (*models.User, error) {
 	return s.repo.GetUserByID(id)
 }
@@ -204,12 +223,68 @@ func (s *UserService) UpdateUser(updates *models.User) (*models.User, error) {
 	return s.repo.GetUserByID(existing.UserID)
 }
 
+func (s *UserService) GetByEmail(email string) (*models.User, error) {
+	return s.repo.GetUserByEmail(email)
+}
+
+// ChangeUserRole changes a user's role
+func (s *UserService) ChangeUserRole(userID uuid.UUID, roleID uuid.UUID) (*models.User, error) {
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	// Verify role exists
+	_, err = s.roleRepo.GetByID(roleID)
+	if err != nil {
+		return nil, errors.New("role not found")
+	}
+
+	user.RoleID = &roleID
+	if err := s.repo.Update(user); err != nil {
+		return nil, err
+	}
+
+	return s.repo.GetUserByID(userID)
+}
+
 func (s *UserService) DeactivateUser(id uuid.UUID) error {
 	user, err := s.repo.GetUserByID(id)
 	if err != nil {
 		return errors.New("user not found")
 	}
 	user.IsActive = false
+	return s.repo.Update(user)
+}
+
+func (s *UserService) DeleteUser(id uuid.UUID) error {
+	_, err := s.repo.GetUserByID(id)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	return s.repo.Delete(id)
+}
+
+// LockUser locks a user account (admin action)
+func (s *UserService) LockUser(id uuid.UUID) error {
+	user, err := s.repo.GetUserByID(id)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	user.IsLocked = true
+	user.LockedUntil = nil // permanent lock until admin unlocks
+	return s.repo.Update(user)
+}
+
+// UnlockUser unlocks a user account and resets failed login attempts
+func (s *UserService) UnlockUser(id uuid.UUID) error {
+	user, err := s.repo.GetUserByID(id)
+	if err != nil {
+		return errors.New("user not found")
+	}
+	user.IsLocked = false
+	user.LockedUntil = nil
+	user.FailedLoginAttempts = 0
 	return s.repo.Update(user)
 }
 
@@ -261,18 +336,17 @@ func (s *UserService) ChangePassword(userID uuid.UUID, oldPassword, newPassword 
 	return nil
 }
 
-// ResetPassword allows admin to reset a user's password
-func (s *UserService) ResetPassword(userID uuid.UUID, newPassword string) error {
+// ResetPassword allows admin to reset a user's password with an auto-generated password and emails it to the user
+func (s *UserService) ResetPassword(userID uuid.UUID) error {
 	user, err := s.repo.GetUserByID(userID)
 	if err != nil {
 		return errors.New("user not found")
 	}
 
-	// Validate new password against policy
-	if s.passwordPolicyService != nil {
-		if err := s.passwordPolicyService.ValidateNewPassword(userID, newPassword, ""); err != nil {
-			return err
-		}
+	// Generate a random password
+	newPassword, err := password.GenerateTemporaryPassword()
+	if err != nil {
+		return fmt.Errorf("failed to generate temporary password: %w", err)
 	}
 
 	// Hash new password
@@ -304,24 +378,43 @@ func (s *UserService) ResetPassword(userID uuid.UUID, newPassword string) error 
 		_ = s.passwordPolicyService.RecordPasswordChange(userID, hashed)
 	}
 
+	// Send the new password to the user's email in a goroutine
+	if s.emailService != nil {
+		userEmail := user.Email
+		go func() {
+			htmlBody := email.PasswordResetTemplate(newPassword)
+			if err := s.emailService.SendEmail([]string{userEmail}, "Your Password Has Been Reset", htmlBody); err != nil {
+				fmt.Printf("WARNING: Failed to send password reset email to %s: %v\n", userEmail, err)
+			}
+		}()
+	}
+
 	return nil
 }
 
 func (s *UserService) SeedSuperAdmin(email, password string) error {
-	exists, err := s.repo.EmailExists(email)
+	hashed, err := utils.HashPassword(password)
 	if err != nil {
 		return err
 	}
-	if exists {
+
+	existing, err := s.repo.GetUserByEmail(email)
+	if err == nil {
+		// User exists — update password and ensure active
+		existing.Password = hashed
+		existing.IsActive = true
+		now := time.Now()
+		existing.PasswordChangedAt = &now
+		if err := s.repo.Update(existing); err != nil {
+			return err
+		}
+		if s.passwordPolicyService != nil {
+			_ = s.passwordPolicyService.RecordPasswordChange(existing.UserID, hashed)
+		}
 		return nil
 	}
 
 	role, err := s.roleRepo.GetByName(models.RoleSuperAdmin)
-	if err != nil {
-		return err
-	}
-
-	hashed, err := utils.HashPassword(password)
 	if err != nil {
 		return err
 	}
@@ -335,7 +428,6 @@ func (s *UserService) SeedSuperAdmin(email, password string) error {
 		PasswordChangedAt: &now,
 	}
 
-	// Set password expiry if policy requires it
 	if s.passwordPolicyService != nil {
 		user.PasswordExpiresAt = s.passwordPolicyService.CalculatePasswordExpiry()
 	}
@@ -344,10 +436,33 @@ func (s *UserService) SeedSuperAdmin(email, password string) error {
 		return err
 	}
 
-	// Record password in history
 	if s.passwordPolicyService != nil {
 		_ = s.passwordPolicyService.RecordPasswordChange(user.UserID, hashed)
 	}
 
 	return nil
+}
+
+// GetProfile retrieves the complete profile (user + employee data) for a user
+func (s *UserService) GetProfile(userID uuid.UUID) (*models.ProfileResponse, error) {
+	// Get user data
+	user, err := s.repo.GetUserByID(userID)
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	// Clear sensitive data
+	user.Password = ""
+
+	profile := &models.ProfileResponse{
+		User: user,
+	}
+
+	// Try to get employee data (not all users have employee records)
+	employee, err := s.empRepo.GetByUserID(userID)
+	if err == nil {
+		profile.Employee = employee
+	}
+
+	return profile, nil
 }

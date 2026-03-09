@@ -10,7 +10,7 @@ import (
 func RegisterPasswordPolicyRoutes(handler *handlers.PasswordPolicyHandler) {
 	// Password policy management routes (authenticated)
 	http.HandleFunc("GET /api/v1/password-policy",
-		withAuth(handler.GetPasswordPolicy))
+		withAuthAndRole(handler.GetPasswordPolicy, models.RoleSuperAdmin, models.RoleHRManager))
 
 	http.HandleFunc("PUT /api/v1/password-policy",
 		withAuthAndRole(handler.UpdatePasswordPolicy, models.RoleSuperAdmin, models.RoleHRManager))
@@ -21,4 +21,8 @@ func RegisterPasswordPolicyRoutes(handler *handlers.PasswordPolicyHandler) {
 
 	http.HandleFunc("POST /api/v1/auth/reset-password",
 		withAuthAndRole(handler.ResetUserPassword, models.RoleSuperAdmin, models.RoleHRManager))
+
+	// Password generation route (accessible to authenticated users)
+	http.HandleFunc("GET /api/v1/password-policy/generate",
+		withAuth(handler.GeneratePassword))
 }

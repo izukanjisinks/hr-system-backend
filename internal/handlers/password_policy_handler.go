@@ -6,6 +6,7 @@ import (
 	"hr-system/internal/middleware"
 	"hr-system/internal/models"
 	"hr-system/internal/services"
+	"hr-system/internal/utils/password"
 	"hr-system/pkg/utils"
 
 	"github.com/google/uuid"
@@ -97,6 +98,33 @@ func (h *PasswordPolicyHandler) ChangePassword(w http.ResponseWriter, r *http.Re
 	})
 }
 
+// GeneratePassword generates a password based on the current password policy
+func (h *PasswordPolicyHandler) GeneratePassword(w http.ResponseWriter, r *http.Request) {
+	// Get current password policy
+	policy := h.policyService.GetPolicy()
+	if policy == nil {
+		utils.RespondError(w, http.StatusNotFound, "No password policy configured")
+		return
+	}
+
+	// Generate password using the policy settings
+	generatedPassword, err := password.GeneratePassword(
+		policy.MinLength,
+		policy.RequireUppercase,
+		policy.RequireLowercase,
+		policy.RequireNumbers,
+		policy.RequireSpecialChars,
+	)
+	if err != nil {
+		utils.RespondError(w, http.StatusInternalServerError, "Failed to generate password")
+		return
+	}
+
+	utils.RespondJSON(w, http.StatusOK, map[string]string{
+		"password": generatedPassword,
+	})
+}
+
 // ResetUserPassword allows admin to reset a user's password
 func (h *PasswordPolicyHandler) ResetUserPassword(w http.ResponseWriter, r *http.Request) {
 	// Only super_admin or hr_manager can reset passwords
@@ -112,16 +140,15 @@ func (h *PasswordPolicyHandler) ResetUserPassword(w http.ResponseWriter, r *http
 	}
 
 	var req struct {
-		UserID      string `json:"user_id"`
-		NewPassword string `json:"new_password"`
+		UserID string `json:"user_id"`
 	}
 	if err := utils.DecodeJson(r, &req); err != nil {
 		utils.RespondError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	if req.UserID == "" || req.NewPassword == "" {
-		utils.RespondError(w, http.StatusBadRequest, "User ID and new password are required")
+	if req.UserID == "" {
+		utils.RespondError(w, http.StatusBadRequest, "User ID is required")
 		return
 	}
 
@@ -131,12 +158,12 @@ func (h *PasswordPolicyHandler) ResetUserPassword(w http.ResponseWriter, r *http
 		return
 	}
 
-	if err := h.userService.ResetPassword(userID, req.NewPassword); err != nil {
+	if err := h.userService.ResetPassword(userID); err != nil {
 		utils.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	utils.RespondJSON(w, http.StatusOK, map[string]string{
-		"message": "Password reset successfully. User must change password on next login.",
+		"message": "Password reset successfully. A temporary password has been sent to the user's email. User must change password on next login.",
 	})
 }

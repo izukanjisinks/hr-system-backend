@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"hr-system/internal/interfaces"
@@ -21,16 +22,30 @@ func NewEmployeeHandler(service *services.EmployeeService) *EmployeeHandler {
 }
 
 func (h *EmployeeHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var emp models.Employee
-	if err := utils.DecodeJson(r, &emp); err != nil {
-		utils.RespondError(w, http.StatusBadRequest, "Invalid request body")
+	var req models.CreateEmployeeRequest
+	if err := utils.DecodeJson(r, &req); err != nil {
+		// Log the detailed error for debugging
+		fmt.Printf("ERROR: Failed to decode employee JSON: %v\n", err)
+		utils.RespondError(w, http.StatusBadRequest, fmt.Sprintf("Invalid request body: %v", err))
 		return
 	}
-	if err := h.service.Create(&emp); err != nil {
+
+	// Validate password is provided
+	if req.Password == "" {
+		utils.RespondError(w, http.StatusBadRequest, "password is required")
+		return
+	}
+
+	// Log the received employee data (without password)
+	fmt.Printf("DEBUG: Creating employee: %s %s <%s>\n", req.FirstName, req.LastName, req.Email)
+
+	// Create employee with user account
+	if err := h.service.CreateWithUser(&req.Employee, req.Password); err != nil {
+		fmt.Printf("ERROR: Failed to create employee in service: %v\n", err)
 		utils.RespondError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	utils.RespondJSON(w, http.StatusCreated, emp)
+	utils.RespondJSON(w, http.StatusCreated, req.Employee)
 }
 
 func (h *EmployeeHandler) GetByID(w http.ResponseWriter, r *http.Request) {
@@ -143,4 +158,20 @@ func (h *EmployeeHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	// Find employee linked to this user
 	_ = userID
 	utils.RespondJSON(w, http.StatusOK, emps[0])
+}
+
+func (h *EmployeeHandler) GetManagersByDepartment(w http.ResponseWriter, r *http.Request) {
+	departmentID, err := uuid.Parse(r.PathValue("department_id"))
+	if err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Invalid department ID")
+		return
+	}
+
+	managers, err := h.service.GetManagersByDepartment(departmentID)
+	if err != nil {
+		utils.RespondError(w, http.StatusInternalServerError, "Failed to get managers")
+		return
+	}
+
+	utils.RespondJSON(w, http.StatusOK, managers)
 }

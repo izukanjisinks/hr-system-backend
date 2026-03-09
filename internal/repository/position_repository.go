@@ -27,10 +27,11 @@ func (r *PositionRepository) Create(pos *models.Position) error {
 	pos.CreatedAt = now
 	pos.UpdatedAt = now
 	_, err := r.db.Exec(`
-		INSERT INTO positions (id, title, code, department_id, grade_level, min_salary, max_salary, description, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-		pos.ID, pos.Title, pos.Code, pos.DepartmentID, pos.GradeLevel,
-		pos.MinSalary, pos.MaxSalary, pos.Description, pos.IsActive, pos.CreatedAt, pos.UpdatedAt,
+		INSERT INTO positions (id, title, code, department_id, role_id, grade_level, base_salary, housing_allowance, transport_allowance, medical_allowance, income_tax, description, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+		pos.ID, pos.Title, pos.Code, pos.DepartmentID, pos.RoleID, pos.GradeLevel,
+		pos.BaseSalary, pos.HousingAllowance, pos.TransportAllowance, pos.MedicalAllowance, pos.IncomeTax,
+		pos.Description, pos.IsActive, pos.CreatedAt, pos.UpdatedAt,
 	)
 	return err
 }
@@ -38,10 +39,11 @@ func (r *PositionRepository) Create(pos *models.Position) error {
 func (r *PositionRepository) GetByID(id uuid.UUID) (*models.Position, error) {
 	var p models.Position
 	err := r.db.QueryRow(`
-		SELECT id, title, code, department_id, grade_level, min_salary, max_salary, description, is_active, created_at, updated_at, deleted_at
+		SELECT id, title, code, department_id, role_id, grade_level, base_salary, housing_allowance, transport_allowance, medical_allowance, income_tax, description, is_active, created_at, updated_at, deleted_at
 		FROM positions WHERE id=$1 AND deleted_at IS NULL`, id,
-	).Scan(&p.ID, &p.Title, &p.Code, &p.DepartmentID, &p.GradeLevel,
-		&p.MinSalary, &p.MaxSalary, &p.Description, &p.IsActive, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt)
+	).Scan(&p.ID, &p.Title, &p.Code, &p.DepartmentID, &p.RoleID, &p.GradeLevel,
+		&p.BaseSalary, &p.HousingAllowance, &p.TransportAllowance, &p.MedicalAllowance, &p.IncomeTax,
+		&p.Description, &p.IsActive, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -50,21 +52,21 @@ func (r *PositionRepository) GetByID(id uuid.UUID) (*models.Position, error) {
 
 func (r *PositionRepository) List(filter interfaces.PositionFilter, page, pageSize int) ([]models.Position, int, error) {
 	args := []interface{}{}
-	where := []string{"deleted_at IS NULL"}
+	where := []string{"p.deleted_at IS NULL"}
 	i := 1
 
 	if filter.DepartmentID != nil {
-		where = append(where, fmt.Sprintf("department_id=$%d", i))
+		where = append(where, fmt.Sprintf("p.department_id=$%d", i))
 		args = append(args, *filter.DepartmentID)
 		i++
 	}
 	if filter.GradeLevel != "" {
-		where = append(where, fmt.Sprintf("grade_level=$%d", i))
+		where = append(where, fmt.Sprintf("p.grade_level=$%d", i))
 		args = append(args, filter.GradeLevel)
 		i++
 	}
 	if filter.IsActive != nil {
-		where = append(where, fmt.Sprintf("is_active=$%d", i))
+		where = append(where, fmt.Sprintf("p.is_active=$%d", i))
 		args = append(args, *filter.IsActive)
 		i++
 	}
@@ -72,15 +74,18 @@ func (r *PositionRepository) List(filter interfaces.PositionFilter, page, pageSi
 	whereStr := strings.Join(where, " AND ")
 
 	var total int
-	err := r.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM positions WHERE %s`, whereStr), args...).Scan(&total)
+	err := r.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM positions p WHERE %s`, whereStr), args...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	args = append(args, pageSize, (page-1)*pageSize)
 	rows, err := r.db.Query(fmt.Sprintf(`
-		SELECT id, title, code, department_id, grade_level, min_salary, max_salary, description, is_active, created_at, updated_at, deleted_at
-		FROM positions WHERE %s ORDER BY title LIMIT $%d OFFSET $%d`, whereStr, i, i+1), args...)
+		SELECT p.id, p.title, p.code, p.department_id, p.role_id, p.grade_level, p.base_salary, p.housing_allowance, p.transport_allowance, p.medical_allowance, p.income_tax, p.description, p.is_active, p.created_at, p.updated_at, p.deleted_at,
+		       COALESCE(d.name, '') AS department_name
+		FROM positions p
+		LEFT JOIN departments d ON p.department_id = d.id
+		WHERE %s ORDER BY p.title LIMIT $%d OFFSET $%d`, whereStr, i, i+1), args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -89,8 +94,10 @@ func (r *PositionRepository) List(filter interfaces.PositionFilter, page, pageSi
 	var positions []models.Position
 	for rows.Next() {
 		var p models.Position
-		if err := rows.Scan(&p.ID, &p.Title, &p.Code, &p.DepartmentID, &p.GradeLevel,
-			&p.MinSalary, &p.MaxSalary, &p.Description, &p.IsActive, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Title, &p.Code, &p.DepartmentID, &p.RoleID, &p.GradeLevel,
+			&p.BaseSalary, &p.HousingAllowance, &p.TransportAllowance, &p.MedicalAllowance, &p.IncomeTax,
+			&p.Description, &p.IsActive, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt,
+			&p.DepartmentName); err != nil {
 			return nil, 0, err
 		}
 		positions = append(positions, p)
@@ -101,10 +108,12 @@ func (r *PositionRepository) List(filter interfaces.PositionFilter, page, pageSi
 func (r *PositionRepository) Update(pos *models.Position) error {
 	pos.UpdatedAt = time.Now()
 	_, err := r.db.Exec(`
-		UPDATE positions SET title=$1, code=$2, department_id=$3, grade_level=$4, min_salary=$5,
-		max_salary=$6, description=$7, is_active=$8, updated_at=$9 WHERE id=$10 AND deleted_at IS NULL`,
-		pos.Title, pos.Code, pos.DepartmentID, pos.GradeLevel, pos.MinSalary,
-		pos.MaxSalary, pos.Description, pos.IsActive, pos.UpdatedAt, pos.ID,
+		UPDATE positions SET title=$1, code=$2, department_id=$3, role_id=$4, grade_level=$5, base_salary=$6,
+		housing_allowance=$7, transport_allowance=$8, medical_allowance=$9, income_tax=$10,
+		description=$11, is_active=$12, updated_at=$13 WHERE id=$14 AND deleted_at IS NULL`,
+		pos.Title, pos.Code, pos.DepartmentID, pos.RoleID, pos.GradeLevel, pos.BaseSalary,
+		pos.HousingAllowance, pos.TransportAllowance, pos.MedicalAllowance, pos.IncomeTax,
+		pos.Description, pos.IsActive, pos.UpdatedAt, pos.ID,
 	)
 	return err
 }

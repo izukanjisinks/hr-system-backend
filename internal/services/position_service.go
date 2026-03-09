@@ -44,6 +44,7 @@ func (s *PositionService) Create(pos *models.Position) error {
 	}
 
 	pos.IsActive = true
+	pos.CalculateSalaryComponents()
 	return s.repo.Create(pos)
 }
 
@@ -73,6 +74,7 @@ func (s *PositionService) Update(pos *models.Position) error {
 		}
 	}
 
+	pos.CalculateSalaryComponents()
 	return s.repo.Update(pos)
 }
 

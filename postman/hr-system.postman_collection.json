@@ -44,7 +44,8 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": { "raw": "{{baseUrl}}/api/v1/auth/me", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","me"] }
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/me", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","me"] },
+            "description": "Returns basic user data"
           }
         },
         {
@@ -66,6 +67,114 @@
             "method": "POST",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/auth/logout", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","logout"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/profile", "host": ["{{baseUrl}}"], "path": ["api","v1","users","profile"] },
+            "description": "Returns complete profile with user data and employee data (if linked). Available to any authenticated user."
+          }
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users?page=1&page_size=20&search=&role_id=&is_active=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","users"],
+              "query": [
+                { "key": "page", "value": "1", "description": "Page number (default: 1)" },
+                { "key": "page_size", "value": "20", "description": "Items per page (default: 20, max: 100)" },
+                { "key": "search", "value": "", "description": "Search by email" },
+                { "key": "role_id", "value": "", "description": "Filter by role UUID" },
+                { "key": "is_active", "value": "true", "description": "Filter by active status (true/false)" }
+              ]
+            },
+            "description": "Get paginated list of users with optional filters. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","users",":id"], "variable": [{ "key": "id", "value": "<user-uuid>" }] },
+            "description": "Get a specific user by UUID. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Change User Role",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/:id/role", "host": ["{{baseUrl}}"], "path": ["api","v1","users",":id","role"], "variable": [{ "key": "id", "value": "<user-uuid>" }] },
+            "body": { "mode": "raw", "raw": "{\n  \"role_id\": \"<role-uuid>\"\n}" },
+            "description": "Change a user's role. Requires SuperAdmin role. Returns the updated user."
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","users",":id"], "variable": [{ "key": "id", "value": "<user-uuid>" }] },
+            "description": "Permanently delete a user. Requires SuperAdmin role."
+          }
+        },
+        {
+          "name": "Lock User Account",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/:id/lock", "host": ["{{baseUrl}}"], "path": ["api","v1","users",":id","lock"], "variable": [{ "key": "id", "value": "<user-uuid>" }] },
+            "description": "Lock a user's account, preventing them from logging in. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Unlock User Account",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/users/:id/unlock", "host": ["{{baseUrl}}"], "path": ["api","v1","users",":id","unlock"], "variable": [{ "key": "id", "value": "<user-uuid>" }] },
+            "description": "Unlock a user's account and reset failed login attempts. Requires SuperAdmin or HRManager role."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "List Roles",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/roles", "host": ["{{baseUrl}}"], "path": ["api","v1","roles"] },
+            "description": "Get all available system roles"
+          }
+        },
+        {
+          "name": "Get Role by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/roles/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","roles",":id"], "variable": [{ "key": "id", "value": "<role-uuid>" }] },
+            "description": "Get a specific role by UUID"
           }
         }
       ]
@@ -166,8 +275,8 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/hr/positions", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","positions"] },
-            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Software Engineer\",\n  \"code\": \"SE-01\",\n  \"department_id\": \"<department-uuid>\",\n  \"grade_level\": \"L3\",\n  \"min_salary\": 60000,\n  \"max_salary\": 100000,\n  \"description\": \"Backend software engineer role\"\n}" },
-            "description": "Requires SuperAdmin or HRManager role."
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Software Engineer\",\n  \"code\": \"SE-01\",\n  \"department_id\": \"<department-uuid>\",\n  \"role_id\": \"<role-uuid>\",\n  \"grade_level\": \"L3\",\n  \"base_salary\": 10000,\n  \"description\": \"Backend software engineer role\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Only base_salary is required — housing_allowance (20%), transport_allowance (10%), medical_allowance (8%) and income_tax (PAYE) are auto-calculated from the base salary."
           }
         },
         {
@@ -184,8 +293,8 @@
             "method": "PUT",
             "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/hr/positions/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","positions",":id"], "variable": [{ "key": "id", "value": "<position-uuid>" }] },
-            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Senior Software Engineer\",\n  \"code\": \"SE-02\",\n  \"department_id\": \"<department-uuid>\",\n  \"grade_level\": \"L4\",\n  \"min_salary\": 90000,\n  \"max_salary\": 140000,\n  \"description\": \"Senior backend engineer role\"\n}" },
-            "description": "Requires SuperAdmin or HRManager role."
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Senior Software Engineer\",\n  \"code\": \"SE-02\",\n  \"department_id\": \"<department-uuid>\",\n  \"role_id\": \"<role-uuid>\",\n  \"grade_level\": \"L4\",\n  \"base_salary\": 15000,\n  \"description\": \"Senior backend engineer role\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Only base_salary is required — allowances and income tax are auto-calculated."
           }
         },
         {
@@ -230,8 +339,8 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/hr/employees", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","employees"] },
-            "body": { "mode": "raw", "raw": "{\n  \"employee_number\": \"EMP-001\",\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"email\": \"john.doe@company.com\",\n  \"personal_email\": \"john.doe@gmail.com\",\n  \"phone\": \"+1234567890\",\n  \"date_of_birth\": \"1990-05-15T00:00:00Z\",\n  \"gender\": \"male\",\n  \"national_id\": \"123456789\",\n  \"marital_status\": \"single\",\n  \"address\": \"123 Main St\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"country\": \"USA\",\n  \"department_id\": \"<department-uuid>\",\n  \"position_id\": \"<position-uuid>\",\n  \"manager_id\": null,\n  \"hire_date\": \"2024-01-15T00:00:00Z\",\n  \"employment_type\": \"full_time\",\n  \"employment_status\": \"active\"\n}" },
-            "description": "Requires SuperAdmin or HRManager role."
+            "body": { "mode": "raw", "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"email\": \"john.doe@company.com\",\n  \"personal_email\": \"john.doe@gmail.com\",\n  \"phone\": \"+1234567890\",\n  \"date_of_birth\": \"1990-05-15T00:00:00Z\",\n  \"gender\": \"male\",\n  \"national_id\": \"123456789\",\n  \"marital_status\": \"single\",\n  \"address\": \"123 Main St\",\n  \"city\": \"New York\",\n  \"state\": \"NY\",\n  \"country\": \"USA\",\n  \"department_id\": \"<department-uuid>\",\n  \"position_id\": \"<position-uuid>\",\n  \"manager_id\": null,\n  \"hire_date\": \"2024-01-15T00:00:00Z\",\n  \"employment_type\": \"full_time\",\n  \"password\": \"TempPassword@123\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Creates an employee and automatically creates a user account. The password field is required and will be used to create login credentials. Use the Generate Password endpoint to get a policy-compliant password. Employee will be forced to change password on first login."
           }
         },
         {
@@ -267,6 +376,15 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/hr/employees/:id/direct-reports", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","employees",":id","direct-reports"], "variable": [{ "key": "id", "value": "<manager-employee-uuid>" }] }
+          }
+        },
+        {
+          "name": "Get Managers by Department",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/departments/:department_id/managers", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","departments",":department_id","managers"], "variable": [{ "key": "department_id", "value": "<department-uuid>" }] },
+            "description": "Get all managers (department managers or those with direct reports) for a specific department. Useful for populating manager dropdowns when creating/editing employees."
           }
         }
       ]
@@ -686,6 +804,22 @@
             "url": { "raw": "{{baseUrl}}/api/v1/hr/dashboard/me", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","dashboard","me"] },
             "description": "Returns dashboard stats for the currently authenticated employee including: employee details, holidays this month, leave days earned this month, yearly entitlement, and total leave requests."
           }
+        },
+        {
+          "name": "Get Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/dashboard/admin",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","hr","dashboard","admin"],
+              "query": [
+                { "key": "from", "value": "2025-01-01", "disabled": true, "description": "Start date filter (YYYY-MM-DD). Defaults to 12 months ago." },
+                { "key": "to", "value": "2026-03-31", "disabled": true, "description": "End date filter (YYYY-MM-DD). Defaults to today." }
+              ]
+            },
+            "description": "Returns admin/HR dashboard stats including: total active employees, total departments, active payrolls, recent hires, leave requests overview, monthly payroll cost trend, and hiring trend. Optionally filter by date range with 'from' and 'to' params. Defaults to last 12 months. Requires SuperAdmin or HRManager role."
+          }
         }
       ]
     },
@@ -760,6 +894,71 @@
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/workflow/instances/:id/history", "host": ["{{baseUrl}}"], "path": ["api","v1","workflow","instances",":id","history"], "variable": [{ "key": "id", "value": "<instance-uuid>" }] },
             "description": "Get complete audit trail for a workflow instance"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Password Policy",
+      "item": [
+        {
+          "name": "Get Password Policy",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/password-policy", "host": ["{{baseUrl}}"], "path": ["api","v1","password-policy"] },
+            "description": "Get current password policy settings including complexity requirements, expiry days, lockout settings, etc."
+          }
+        },
+        {
+          "name": "Update Password Policy",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/password-policy", "host": ["{{baseUrl}}"], "path": ["api","v1","password-policy"] },
+            "body": { "mode": "raw", "raw": "{\n  \"min_length\": 10,\n  \"require_uppercase\": true,\n  \"require_lowercase\": true,\n  \"require_numbers\": true,\n  \"require_special_chars\": true,\n  \"max_failed_attempts\": 3,\n  \"lockout_duration_mins\": 30,\n  \"password_expiry_days\": 90,\n  \"otp_length\": 6,\n  \"otp_expiry_mins\": 5,\n  \"session_timeout_mins\": 30\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Update password policy settings. All fields are optional."
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/change-password", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","change-password"] },
+            "body": { "mode": "raw", "raw": "{\n  \"old_password\": \"CurrentPass@123\",\n  \"new_password\": \"NewPassword@456\"\n}" },
+            "description": "Change your own password. Validates against password policy and checks password history."
+          }
+        },
+        {
+          "name": "Reset User Password (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","reset-password"] },
+            "body": { "mode": "raw", "raw": "{\n  \"user_id\": \"<user-uuid>\"\n}" },
+            "description": "Requires SuperAdmin or HRManager role. Generates a random temporary password and sends it to the user's email. User will be forced to change password on next login."
+          }
+        },
+        {
+          "name": "Generate Password",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/v1/password-policy/generate", "host": ["{{baseUrl}}"], "path": ["api","v1","password-policy","generate"] },
+            "description": "Generate a secure password that complies with the current password policy. Returns a password meeting all complexity requirements (min length, uppercase, lowercase, numbers, special characters)."
           }
         }
       ]
@@ -934,6 +1133,144 @@
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/admin/workflow-transitions/:transition_id", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","workflow-transitions",":transition_id"], "variable": [{ "key": "transition_id", "value": "<transition-uuid>" }] },
             "description": "Requires SuperAdmin or HRManager role. Permanently delete workflow transition."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Payslips",
+      "item": [
+        {
+          "name": "Get My Payslips",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/payslips/me",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payslips","me"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "year", "value": "2026", "disabled": true }
+              ]
+            },
+            "description": "Get payslips for the currently authenticated employee. Optionally filter by year."
+          }
+        },
+        {
+          "name": "List Payslips",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/payslips",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payslips"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "employee_id", "value": "", "disabled": true },
+                { "key": "month", "value": "", "disabled": true },
+                { "key": "year", "value": "", "disabled": true }
+              ]
+            },
+            "description": "List all payslips with optional filters. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Generate Payslip",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payslips", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payslips"] },
+            "body": { "mode": "raw", "raw": "{\n  \"employee_id\": \"<employee-uuid>\",\n  \"month\": 3,\n  \"year\": 2026\n}" },
+            "description": "Generate a payslip for an employee. Salary data is pulled from the employee's position (base_salary, allowances, PAYE). Leave days compensation is calculated from unused leave balance. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Get Payslip",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payslips/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payslips",":id"], "variable": [{ "key": "id", "value": "<payslip-uuid>" }] }
+          }
+        },
+        {
+          "name": "Delete Payslip",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payslips/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payslips",":id"], "variable": [{ "key": "id", "value": "<payslip-uuid>" }] },
+            "description": "Delete a payslip. Requires SuperAdmin role."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Payrolls",
+      "item": [
+        {
+          "name": "List Payrolls",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/hr/payrolls",
+              "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "20" },
+                { "key": "status", "value": "", "disabled": true, "description": "OPEN | PROCESSING | COMPLETED | CANCELLED" }
+              ]
+            },
+            "description": "List all payrolls with optional status filter. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Create Payroll",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payrolls", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls"] },
+            "body": { "mode": "raw", "raw": "{\n  \"start_date\": \"2026-03-01\",\n  \"end_date\": \"2026-03-31\"\n}" },
+            "description": "Open a new payroll period. Status defaults to OPEN. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Get Payroll",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payrolls/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls",":id"], "variable": [{ "key": "id", "value": "<payroll-uuid>" }] },
+            "description": "Get payroll details including associated payslips (linked by month/year from end_date). Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Process Payroll",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payrolls/:id/process", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls",":id","process"], "variable": [{ "key": "id", "value": "<payroll-uuid>" }] },
+            "description": "Process a payroll: generates payslips for all active employees using the month/year from the payroll's end_date. Marks payroll as COMPLETED with processed_by set to the current user. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Cancel Payroll",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payrolls/:id/cancel", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls",":id","cancel"], "variable": [{ "key": "id", "value": "<payroll-uuid>" }] },
+            "description": "Cancel a payroll. Only OPEN payrolls can be cancelled. Requires SuperAdmin or HRManager role."
+          }
+        },
+        {
+          "name": "Delete Payroll",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/hr/payrolls/:id", "host": ["{{baseUrl}}"], "path": ["api","v1","hr","payrolls",":id"], "variable": [{ "key": "id", "value": "<payroll-uuid>" }] },
+            "description": "Delete a payroll (only if OPEN). Requires SuperAdmin role."
           }
         }
       ]

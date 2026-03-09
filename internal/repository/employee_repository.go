@@ -114,7 +114,15 @@ func (r *EmployeeRepository) List(filter interfaces.EmployeeFilter, page, pageSi
 
 	args = append(args, pageSize, (page-1)*pageSize)
 	rows, err := r.db.Query(fmt.Sprintf(`
-		SELECT %s FROM employees e WHERE %s ORDER BY e.last_name, e.first_name LIMIT $%d OFFSET $%d`,
+		SELECT %s,
+		       COALESCE(d.name, '') AS department_name,
+		       COALESCE(p.title, '') AS position_name,
+		       COALESCE(m.first_name || ' ' || m.last_name, '') AS manager_name
+		FROM employees e
+		LEFT JOIN departments d ON e.department_id = d.id
+		LEFT JOIN positions p ON e.position_id = p.id
+		LEFT JOIN employees m ON e.manager_id = m.id
+		WHERE %s ORDER BY e.last_name, e.first_name LIMIT $%d OFFSET $%d`,
 		employeeSelectCols, whereStr, i, i+1), args...)
 	if err != nil {
 		return nil, 0, err
@@ -123,7 +131,7 @@ func (r *EmployeeRepository) List(filter interfaces.EmployeeFilter, page, pageSi
 
 	var emps []models.Employee
 	for rows.Next() {
-		emp, err := r.scanEmployee(rows)
+		emp, err := r.scanEmployeeWithNames(rows)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -135,12 +143,12 @@ func (r *EmployeeRepository) List(filter interfaces.EmployeeFilter, page, pageSi
 func (r *EmployeeRepository) Update(emp *models.Employee) error {
 	emp.UpdatedAt = time.Now()
 	_, err := r.db.Exec(`
-		UPDATE employees SET first_name=$1, last_name=$2, email=$3, personal_email=$4, phone=$5,
-		date_of_birth=$6, gender=$7, national_id=$8, marital_status=$9, address=$10, city=$11, state=$12,
-		country=$13, department_id=$14, position_id=$15, manager_id=$16, probation_end_date=$17,
-		employment_type=$18, employment_status=$19, termination_date=$20, termination_reason=$21,
-		profile_photo_url=$22, updated_at=$23 WHERE id=$24 AND deleted_at IS NULL`,
-		emp.FirstName, emp.LastName, emp.Email, emp.PersonalEmail, emp.Phone,
+		UPDATE employees SET user_id=$1, first_name=$2, last_name=$3, email=$4, personal_email=$5, phone=$6,
+		date_of_birth=$7, gender=$8, national_id=$9, marital_status=$10, address=$11, city=$12, state=$13,
+		country=$14, department_id=$15, position_id=$16, manager_id=$17, probation_end_date=$18,
+		employment_type=$19, employment_status=$20, termination_date=$21, termination_reason=$22,
+		profile_photo_url=$23, updated_at=$24 WHERE id=$25 AND deleted_at IS NULL`,
+		emp.UserID, emp.FirstName, emp.LastName, emp.Email, emp.PersonalEmail, emp.Phone,
 		emp.DateOfBirth, emp.Gender, emp.NationalID, emp.MaritalStatus, emp.Address, emp.City,
 		emp.State, emp.Country, emp.DepartmentID, emp.PositionID, emp.ManagerID, emp.ProbationEndDate,
 		emp.EmploymentType, emp.EmploymentStatus, emp.TerminationDate, emp.TerminationReason,
@@ -179,6 +187,48 @@ func (r *EmployeeRepository) CountByDatePrefix(prefix string) (int, error) {
 	return count, err
 }
 
+// GetManagersByDepartment returns all employees who are managers in a specific department
+// An employee is considered a manager if:
+// 1. They are the department manager (departments.manager_id), OR
+// 2. They have direct reports in that department
+func (r *EmployeeRepository) GetManagersByDepartment(departmentID uuid.UUID) ([]models.Employee, error) {
+	query := fmt.Sprintf(`
+		SELECT DISTINCT %s
+		FROM employees e
+		WHERE e.deleted_at IS NULL
+		AND e.department_id = $1
+		AND (
+			-- Is the department manager
+			EXISTS (SELECT 1 FROM departments d WHERE d.id = $1 AND d.manager_id = e.id)
+			OR
+			-- Has direct reports in this department
+			EXISTS (
+				SELECT 1 FROM employees reports
+				WHERE reports.manager_id = e.id
+				AND reports.department_id = $1
+				AND reports.deleted_at IS NULL
+			)
+		)
+		ORDER BY e.last_name, e.first_name
+	`, employeeSelectCols)
+
+	rows, err := r.db.Query(query, departmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var managers []models.Employee
+	for rows.Next() {
+		emp, err := r.scanEmployee(rows)
+		if err != nil {
+			return nil, err
+		}
+		managers = append(managers, *emp)
+	}
+	return managers, rows.Err()
+}
+
 func (r *EmployeeRepository) EmailActiveExists(email string, excludeID *uuid.UUID) (bool, error) {
 	var count int
 	var err error
@@ -206,6 +256,32 @@ func (r *EmployeeRepository) scanEmployee(row rowScanner) (*models.Employee, err
 		return nil, err
 	}
 
+	r.resolveNullables(&e, userID, managerID, dob, probEnd, termDate)
+	return &e, nil
+}
+
+func (r *EmployeeRepository) scanEmployeeWithNames(row rowScanner) (*models.Employee, error) {
+	var e models.Employee
+	var userID, managerID sql.NullString
+	var dob, probEnd, termDate sql.NullTime
+
+	err := row.Scan(
+		&e.ID, &userID, &e.EmployeeNumber, &e.FirstName, &e.LastName, &e.Email, &e.PersonalEmail,
+		&e.Phone, &dob, &e.Gender, &e.NationalID, &e.MaritalStatus, &e.Address, &e.City, &e.State,
+		&e.Country, &e.DepartmentID, &e.PositionID, &managerID, &e.HireDate, &probEnd,
+		&e.EmploymentType, &e.EmploymentStatus, &termDate, &e.TerminationReason,
+		&e.ProfilePhotoURL, &e.CreatedAt, &e.UpdatedAt, &e.DeletedAt,
+		&e.DepartmentName, &e.PositionName, &e.ManagerName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	r.resolveNullables(&e, userID, managerID, dob, probEnd, termDate)
+	return &e, nil
+}
+
+func (r *EmployeeRepository) resolveNullables(e *models.Employee, userID, managerID sql.NullString, dob, probEnd, termDate sql.NullTime) {
 	if userID.Valid {
 		p, _ := uuid.Parse(userID.String)
 		e.UserID = &p
@@ -223,6 +299,4 @@ func (r *EmployeeRepository) scanEmployee(row rowScanner) (*models.Employee, err
 	if termDate.Valid {
 		e.TerminationDate = &termDate.Time
 	}
-
-	return &e, nil
 }

@@ -61,9 +61,6 @@ func main() {
 	userService := services.NewUserService(userRepo, roleRepo)
 	deptService := services.NewDepartmentService(deptRepo)
 	posService := services.NewPositionService(posRepo, deptRepo)
-	empService := services.NewEmployeeService(empRepo, deptRepo, posRepo)
-	docService := services.NewEmployeeDocumentService(docRepo, empRepo)
-	ecService := services.NewEmergencyContactService(ecRepo, empRepo)
 
 	// Services — Phase 2 (create some services early for workflow dependencies)
 	ltService := services.NewLeaveTypeService(ltRepo)
@@ -79,6 +76,14 @@ func main() {
 	// Email Service
 	emailService := email.NewEmailService(&cfg.Email)
 	log.Println("Email service initialized")
+
+	// Set email service on user service (for password reset emails)
+	userService.SetEmailService(emailService)
+
+	// Employee Service (created after email service for dependency)
+	empService := services.NewEmployeeService(empRepo, deptRepo, posRepo, userService, emailService)
+	docService := services.NewEmployeeDocumentService(docRepo, empRepo)
+	ecService := services.NewEmergencyContactService(ecRepo, empRepo)
 
 	// Workflow Service (create after leave balance service for dependency injection)
 	// Note: LeaveRequestRepo, LeaveBalanceService, and EmailService are passed to enable full workflow functionality
@@ -111,6 +116,8 @@ func main() {
 
 	// Handlers — Phase 1
 	authHandler := handlers.NewAuthHandler(userService)
+	userHandler := handlers.NewUserHandler(userService)
+	roleHandler := handlers.NewRoleHandler(roleService)
 	deptHandler := handlers.NewDepartmentHandler(deptService)
 	posHandler := handlers.NewPositionHandler(posService)
 	empHandler := handlers.NewEmployeeHandler(empService)
@@ -124,8 +131,19 @@ func main() {
 	holidayHandler := handlers.NewHolidayHandler(holidayService)
 	attHandler := handlers.NewAttendanceHandler(attService, empService)
 
+	// Payslip
+	payslipRepo := repository.NewPayslipRepository()
+	payslipService := services.NewPayslipService(payslipRepo, empRepo, posRepo, lbRepo)
+	payslipHandler := handlers.NewPayslipHandler(payslipService)
+
+	// Payroll
+	payrollRepo := repository.NewPayrollRepository()
+	payrollService := services.NewPayrollService(payrollRepo, payslipService, empRepo, emailService)
+	payrollHandler := handlers.NewPayrollHandler(payrollService)
+
 	// Dashboard
-	dashboardService := services.NewDashboardService(empRepo, posRepo, deptRepo, lbRepo, lrRepo)
+	adminDashRepo := repository.NewAdminDashboardRepository()
+	dashboardService := services.NewDashboardService(empRepo, posRepo, deptRepo, lbRepo, lrRepo, adminDashRepo)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
 
 	// Workflow Handler
@@ -145,11 +163,13 @@ func main() {
 
 	// Register routes
 	routes.RegisterRoutes(
-		authHandler, deptHandler, posHandler, empHandler, docHandler, ecHandler,
+		authHandler, userHandler, roleHandler, deptHandler, posHandler, empHandler, docHandler, ecHandler,
 		ltHandler, lbHandler, lrHandler, attHandler, holidayHandler, dashboardHandler,
 		workflowHandler, workflowAdminHandler,
 	)
 	routes.RegisterPasswordPolicyRoutes(passwordPolicyHandler)
+	routes.RegisterPayslipRoutes(payslipHandler)
+	routes.RegisterPayrollRoutes(payrollHandler)
 
 	// Apply CORS middleware globally to the default mux
 	handler := middleware.CORS(http.DefaultServeMux)

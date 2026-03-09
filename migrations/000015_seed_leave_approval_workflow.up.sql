@@ -10,12 +10,20 @@ DECLARE
     v_step_manager_approval_id UUID;
     v_step_completed_id UUID;
 BEGIN
-    -- Get the super admin user ID (created in the seeding process)
+    -- Get the super admin user ID, inserting a seed user if it doesn't exist yet.
+    -- The app will overwrite the password hash on startup via its own seeding logic.
     SELECT user_id INTO v_super_admin_id FROM users WHERE email = 'admin@hr-system.com' LIMIT 1;
 
     IF v_super_admin_id IS NULL THEN
-        RAISE NOTICE 'Super admin not found, using a placeholder UUID';
-        v_super_admin_id := gen_random_uuid();
+        INSERT INTO users (email, password, role_id, is_active)
+        VALUES (
+            'admin@hr-system.com',
+            '$2a$10$placeholder.hash.will.be.overwritten.by.app.seed',
+            (SELECT role_id FROM roles WHERE name = 'super_admin' LIMIT 1),
+            true
+        )
+        RETURNING user_id INTO v_super_admin_id;
+        RAISE NOTICE 'Created seed admin user with ID: %', v_super_admin_id;
     END IF;
 
     -- Create the Leave Approval Workflow template

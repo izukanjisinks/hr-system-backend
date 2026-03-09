@@ -6,6 +6,8 @@ import (
 
 func RegisterRoutes(
 	authHandler *handlers.AuthHandler,
+	userHandler *handlers.UserHandler,
+	roleHandler *handlers.RoleHandler,
 	deptHandler *handlers.DepartmentHandler,
 	posHandler *handlers.PositionHandler,
 	empHandler *handlers.EmployeeHandler,
@@ -22,6 +24,8 @@ func RegisterRoutes(
 ) {
 	RegisterPublicRoutes(authHandler)
 	RegisterAuthRoutes(authHandler)
+	RegisterUserRoutes(userHandler)
+	RegisterRoleRoutes(roleHandler)
 	RegisterDepartmentRoutes(deptHandler)
 	RegisterPositionRoutes(posHandler)
 	RegisterEmployeeRoutes(empHandler, docHandler, ecHandler)

@@ -59,16 +59,16 @@ func (r *DepartmentRepository) GetByID(id uuid.UUID) (*models.Department, error)
 
 func (r *DepartmentRepository) List(filter interfaces.DepartmentFilter, page, pageSize int) ([]models.Department, int, error) {
 	args := []interface{}{}
-	where := []string{"deleted_at IS NULL"}
+	where := []string{"d.deleted_at IS NULL"}
 	i := 1
 
 	if filter.IsActive != nil {
-		where = append(where, fmt.Sprintf("is_active = $%d", i))
+		where = append(where, fmt.Sprintf("d.is_active = $%d", i))
 		args = append(args, *filter.IsActive)
 		i++
 	}
 	if filter.Search != "" {
-		where = append(where, fmt.Sprintf("(name ILIKE $%d OR code ILIKE $%d)", i, i))
+		where = append(where, fmt.Sprintf("(d.name ILIKE $%d OR d.code ILIKE $%d)", i, i))
 		args = append(args, "%"+filter.Search+"%")
 		i++
 	}
@@ -76,15 +76,20 @@ func (r *DepartmentRepository) List(filter interfaces.DepartmentFilter, page, pa
 	whereStr := strings.Join(where, " AND ")
 
 	var total int
-	err := r.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM departments WHERE %s`, whereStr), args...).Scan(&total)
+	err := r.db.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM departments d WHERE %s`, whereStr), args...).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	args = append(args, pageSize, (page-1)*pageSize)
 	rows, err := r.db.Query(fmt.Sprintf(`
-		SELECT id, name, code, description, parent_department_id, manager_id, is_active, created_at, updated_at, deleted_at
-		FROM departments WHERE %s ORDER BY name LIMIT $%d OFFSET $%d`, whereStr, i, i+1), args...)
+		SELECT d.id, d.name, d.code, d.description, d.parent_department_id, d.manager_id, d.is_active, d.created_at, d.updated_at, d.deleted_at,
+		       COALESCE(pd.name, '') AS parent_department_name,
+		       COALESCE(e.first_name || ' ' || e.last_name, '') AS manager_name
+		FROM departments d
+		LEFT JOIN departments pd ON d.parent_department_id = pd.id
+		LEFT JOIN employees e ON d.manager_id = e.id
+		WHERE %s ORDER BY d.name LIMIT $%d OFFSET $%d`, whereStr, i, i+1), args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -95,7 +100,8 @@ func (r *DepartmentRepository) List(filter interfaces.DepartmentFilter, page, pa
 		var d models.Department
 		var parentID, managerID sql.NullString
 		if err := rows.Scan(&d.ID, &d.Name, &d.Code, &d.Description, &parentID, &managerID,
-			&d.IsActive, &d.CreatedAt, &d.UpdatedAt, &d.DeletedAt); err != nil {
+			&d.IsActive, &d.CreatedAt, &d.UpdatedAt, &d.DeletedAt,
+			&d.ParentDepartmentName, &d.ManagerName); err != nil {
 			return nil, 0, err
 		}
 		if parentID.Valid {

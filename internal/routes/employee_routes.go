@@ -30,6 +30,9 @@ func RegisterEmployeeRoutes(
 	http.HandleFunc("GET /api/v1/hr/employees/{id}/direct-reports",
 		withAuth(empH.GetDirectReports))
 
+	http.HandleFunc("GET /api/v1/hr/departments/{department_id}/managers",
+		withAuth(empH.GetManagersByDepartment))
+
 	http.HandleFunc("GET /api/v1/hr/employees/{id}/documents",
 		withAuth(docH.ListByEmployee))
 

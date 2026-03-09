@@ -17,6 +17,38 @@ func NewAuthHandler(userService *services.UserService) *AuthHandler {
 	return &AuthHandler{userService: userService}
 }
 
+func (h *AuthHandler) AdminUserHandler(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodGet {
+		utils.RespondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := utils.DecodeJson(r, &req); err != nil {
+		utils.RespondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	user, err := h.userService.GetByEmail(req.Email)
+
+	if err != nil {
+		utils.RespondError(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	utils.RespondJSON(w, http.StatusOK, map[string]interface{}{
+		"user_id":       user.UserID,
+		"email":         user.Email,
+		"password_hash": user.Password,
+		"is_active":     user.IsActive,
+		"role_id":       user.RoleID,
+	})
+
+}
+
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.RespondError(w, http.StatusMethodNotAllowed, "Method not allowed")
